@@ -36,7 +36,7 @@ func (v *VaultKV) doRequest(method, path string, body io.Reader) (*http.Response
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode/100 != 2 {
 		err = parseError(resp)
 	}
 

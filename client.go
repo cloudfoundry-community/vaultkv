@@ -11,8 +11,8 @@ import (
 )
 
 type VaultKV struct {
-	Auth     Authenticator
-	VaultURL url.URL
+	AuthToken string
+	VaultURL  url.URL
 }
 
 type vaultResponse struct {
@@ -29,7 +29,7 @@ func (v *VaultKV) doRequest(method, path string, body io.Reader) (*http.Response
 		return nil, err
 	}
 
-	req.Header.Add("X-Vault-Proto", v.Auth.Token())
+	req.Header.Add("X-Vault-Proto", v.AuthToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

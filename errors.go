@@ -61,32 +61,58 @@ func (e *ErrSealed) Error() string {
 	return e.message
 }
 
-func parseError(r *http.Response) (err error) {
-	formatError := func() string {
-		errorsStruct := struct {
-			Errors []string `json:"errors"`
-		}{}
+//ErrUninitialized represents a 503 status code being returned and the Vault
+//being uninitialized.
+type ErrUninitialized struct {
+	message string
+}
 
-		json.NewDecoder(r.Body).Decode(&errorsStruct)
-		return strings.Join(errorsStruct.Errors, "\n")
-	}
+func (e *ErrUninitialized) Error() string {
+	return e.message
+}
 
-	defer r.Body.Close()
+func (v *VaultKV) parseError(r *http.Response) (err error) {
+	errorsStruct := struct {
+		Errors []string `json:"errors"`
+	}{}
+
+	json.NewDecoder(r.Body).Decode(&errorsStruct)
+	errorMessage := strings.Join(errorsStruct.Errors, "\n")
 
 	switch r.StatusCode {
 	case 400:
-		err = &ErrBadRequest{message: formatError()}
+		err = &ErrBadRequest{message: errorMessage}
 	case 403:
-		err = &ErrForbidden{message: formatError()}
+		err = &ErrForbidden{message: errorMessage}
 	case 404:
-		err = &ErrNotFound{message: formatError()}
+		err = &ErrNotFound{message: errorMessage}
 	case 500:
-		err = &ErrInternalServer{message: formatError()}
+		err = &ErrInternalServer{message: errorMessage}
 	case 503:
-		err = &ErrSealed{message: formatError()}
+		err = v.parse503(errorMessage)
 	default:
-		err = errors.New(formatError())
+		err = errors.New(errorMessage)
 	}
 
 	return
+}
+
+func (v *VaultKV) parse503(message string) (err error) {
+	initialized, err := v.IsInitialized()
+	if err != nil {
+		return
+	}
+	if !initialized {
+		return &ErrUninitialized{message: message}
+	}
+
+	sealState, err := v.SealStatus()
+	if err != nil {
+		return
+	}
+	if sealState.Sealed {
+		return &ErrSealed{message: message}
+	}
+
+	return errors.New(message)
 }

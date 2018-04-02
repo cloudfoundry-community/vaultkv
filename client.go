@@ -10,9 +10,11 @@ import (
 	"strings"
 )
 
-type VaultKV struct {
+type Client struct {
 	AuthToken string
-	VaultURL  url.URL
+	VaultURL  *url.URL
+	//If Client is nil, http.DefaultClient will be used
+	Client *http.Client
 }
 
 type vaultResponse struct {
@@ -20,7 +22,7 @@ type vaultResponse struct {
 	//There's totally more to the response, but this is all I care about atm.
 }
 
-func (v *VaultKV) doRequest(
+func (v *Client) doRequest(
 	method, path string,
 	input interface{},
 	output interface{}) error {
@@ -30,10 +32,15 @@ func (v *VaultKV) doRequest(
 
 	var body io.Reader
 	if input != nil {
-		body = &bytes.Buffer{}
-		err := json.NewEncoder(body.(*bytes.Buffer)).Encode(input)
-		if err != nil {
-			return err
+		if strings.ToUpper(method) == "GET" {
+			//Input has to be a url.Values
+			u.RawQuery = input.(url.Values).Encode()
+		} else {
+			body = &bytes.Buffer{}
+			err := json.NewEncoder(body.(*bytes.Buffer)).Encode(input)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -44,9 +51,14 @@ func (v *VaultKV) doRequest(
 
 	req.Header.Add("X-Vault-Proto", v.AuthToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	client := v.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return &ErrTransport{message: err.Error()}
 	}
 	defer resp.Body.Close()
 

@@ -1,6 +1,14 @@
 package vaultkv
 
-func (v *VaultKV) doSysRequest(
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/url"
+	"strings"
+)
+
+func (v *Client) doSysRequest(
 	method, path string,
 	input interface{},
 	output interface{}) error {
@@ -13,7 +21,7 @@ func (v *VaultKV) doSysRequest(
 		}
 
 		if !initialized {
-			return &ErrUninitialized{message: err.Error()}
+			return &ErrUninitialized{message: "Your Vault is not initialized"}
 		}
 	}
 
@@ -21,7 +29,7 @@ func (v *VaultKV) doSysRequest(
 }
 
 //IsInitialized returns true if the targeted Vault is initialized
-func (v *VaultKV) IsInitialized() (is bool, err error) {
+func (v *Client) IsInitialized() (is bool, err error) {
 	//Don't call doSysRequest from here because it calls IsInitialized
 	// and that could get ugly
 	err = v.doRequest(
@@ -56,7 +64,7 @@ type SealState struct {
 }
 
 //SealStatus calls the /sys/seal-status endpoint and returns the info therein
-func (v *VaultKV) SealStatus() (ret *SealState, err error) {
+func (v *Client) SealStatus() (ret *SealState, err error) {
 	err = v.doSysRequest(
 		"GET",
 		"/sys/seal-status",
@@ -80,7 +88,7 @@ type InitVaultOutput struct {
 }
 
 //InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
-func (v *VaultKV) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) {
+func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) {
 	err = v.doSysRequest(
 		"PUT",
 		"/sys/init",
@@ -91,14 +99,14 @@ func (v *VaultKV) InitVault(in InitVaultInput) (out *InitVaultOutput, err error)
 }
 
 //Seal puts to the /sys/seal endpoint to seal the Vault.
-func (v *VaultKV) Seal() error {
+func (v *Client) Seal() error {
 	return v.doSysRequest("PUT", "/sys/seal", nil, nil)
 }
 
 //Unseal puts to the /sys/unseal endpoint with a single key to progress the
 // unseal attempt. If the unseal was successful, then the Sealed member of the
 // returned struct will be false
-func (v *VaultKV) Unseal(key string) (out *SealState, err error) {
+func (v *Client) Unseal(key string) (out *SealState, err error) {
 	err = v.doSysRequest(
 		"PUT",
 		"/sys/unseal",
@@ -111,4 +119,44 @@ func (v *VaultKV) Unseal(key string) (out *SealState, err error) {
 	)
 
 	return
+}
+
+func (v *Client) Health(standbyok bool) error {
+	//Don't call doRequest from Health because ParseError calls Health
+	query := url.Values{}
+	boolStr := "false"
+	if standbyok == true {
+		boolStr = "true"
+	}
+	query.Add("standbyok", boolStr)
+	u := v.VaultURL
+	u.Path = "/v1/sys/health"
+	u.RawQuery = query.Encode()
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := v.Client.Do(req)
+	if err != nil {
+		return &ErrTransport{message: err.Error()}
+	}
+
+	errorsStruct := apiError{}
+	json.NewDecoder(resp.Body).Decode(&errorsStruct)
+	errorMessage := strings.Join(errorsStruct.Errors, "\n")
+
+	switch resp.StatusCode {
+	case 200:
+		err = nil
+	case 429:
+		err = &ErrStandby{message: errorMessage}
+	case 501:
+		err = &ErrUninitialized{message: errorMessage}
+	case 503:
+		err = &ErrSealed{message: errorMessage}
+	default:
+		err = errors.New(errorMessage)
+	}
+
+	return err
 }

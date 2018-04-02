@@ -40,6 +40,16 @@ func (e *ErrNotFound) Error() string {
 	return e.message
 }
 
+//ErrStandby is only returned from Health() if standbyok is set to false and the
+// node you're querying is a standby.
+type ErrStandby struct {
+	message string
+}
+
+func (e *ErrStandby) Error() string {
+	return e.message
+}
+
 //ErrInternalServer represents 500 status codes that are returned from the API.
 //See: their fault.
 type ErrInternalServer struct {
@@ -71,11 +81,22 @@ func (e *ErrUninitialized) Error() string {
 	return e.message
 }
 
-func (v *VaultKV) parseError(r *http.Response) (err error) {
-	errorsStruct := struct {
-		Errors []string `json:"errors"`
-	}{}
+//ErrTransport is returned if an error was encountered trying to reach the API,
+// as opposed to an error from the API, is returned
+type ErrTransport struct {
+	message string
+}
 
+func (e *ErrTransport) Error() string {
+	return e.message
+}
+
+type apiError struct {
+	Errors []string `json:"errors"`
+}
+
+func (v *Client) parseError(r *http.Response) (err error) {
+	errorsStruct := apiError{}
 	json.NewDecoder(r.Body).Decode(&errorsStruct)
 	errorMessage := strings.Join(errorsStruct.Errors, "\n")
 
@@ -97,22 +118,6 @@ func (v *VaultKV) parseError(r *http.Response) (err error) {
 	return
 }
 
-func (v *VaultKV) parse503(message string) (err error) {
-	initialized, err := v.IsInitialized()
-	if err != nil {
-		return
-	}
-	if !initialized {
-		return &ErrUninitialized{message: message}
-	}
-
-	sealState, err := v.SealStatus()
-	if err != nil {
-		return
-	}
-	if sealState.Sealed {
-		return &ErrSealed{message: message}
-	}
-
-	return errors.New(message)
+func (v *Client) parse503(message string) (err error) {
+	return v.Health(true)
 }

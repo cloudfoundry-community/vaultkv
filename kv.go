@@ -5,7 +5,7 @@ package vaultkv
 //can be used to check for existence). If the object could not be unmarshalled
 //into, the resultant error is returned. Example path would be /secret/foo, if
 //Key/Value backend were mounted at "/secret"
-func (v *VaultKV) Get(path string, output interface{}) error {
+func (v *Client) Get(path string, output interface{}) error {
 	var unmarshalInto interface{}
 	if output != nil {
 		unmarshalInto = &vaultResponse{Data: &output}
@@ -19,7 +19,7 @@ func (v *VaultKV) Get(path string, output interface{}) error {
 	return err
 }
 
-func (v *VaultKV) List(path string) ([]string, error) {
+func (v *Client) List(path string) ([]string, error) {
 	ret := []string{}
 
 	err := v.doRequest("LIST", path, nil, &vaultResponse{
@@ -36,7 +36,7 @@ func (v *VaultKV) List(path string) ([]string, error) {
 	return ret, err
 }
 
-func (v *VaultKV) Set(path string, values map[string]string) error {
+func (v *Client) Set(path string, values map[string]string) error {
 	err := v.doRequest("PUT", path, &values, nil)
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (v *VaultKV) Set(path string, values map[string]string) error {
 	return nil
 }
 
-func (v *VaultKV) Delete(path string) error {
+func (v *Client) Delete(path string) error {
 	err := v.doRequest("DELETE", path, nil, nil)
 	if err != nil {
 		return err

@@ -49,7 +49,7 @@ func (v *Client) doRequest(
 		return err
 	}
 
-	req.Header.Add("X-Vault-Proto", v.AuthToken)
+	req.Header.Add("X-Vault-Token", v.AuthToken)
 
 	client := v.Client
 	if client == nil {

@@ -1,6 +1,7 @@
 package vaultkv_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -30,7 +31,7 @@ func TestVaultkv(t *testing.T) {
 }
 
 var currentVaultProcess *os.Process
-var processChan chan *os.ProcessState
+var processChan = make(chan *os.ProcessState)
 var processOutputWriter, processOutputReader *os.File
 
 var (
@@ -50,7 +51,7 @@ var _ = BeforeSuite(func() {
 		panic("vault was not found in your PATH")
 	}
 
-	const uriStr = "https://127.0.0.1:8200"
+	const uriStr = "https://127.0.0.1:8201"
 	vaultURI, err = url.Parse(uriStr)
 	if err != nil {
 		panic(fmt.Sprintf("Could not parse Vault URI: %s", uriStr))
@@ -118,11 +119,11 @@ storage "inmem" {}
 disable_mlock = true
 
 listener "tcp" {
-  address = "127.0.0.1:8200"
+  address = "%s"
   tls_cert_file = "%s"
   tls_key_file = "%s"
 }
-`, certLocation, keyLocation)
+`, vaultURI.Host, certLocation, keyLocation)
 	_, err = configFile.WriteString(vaultConfig)
 	if err != nil {
 		panic(fmt.Sprintf("Could not write test config to file: %s", err))
@@ -152,18 +153,24 @@ func StartVault() {
 		panic("Clean up your vault process")
 	}
 
-	processChan = make(chan *os.ProcessState)
 	var err error
 
 	//Gotta get that IPC from Vault in case we want to report errors
 	processOutputReader, processOutputWriter, err = os.Pipe()
-	go io.Copy(GinkgoWriter, processOutputReader)
-
 	if err != nil {
 		panic("Could not set up IPC file descriptors")
 	}
 
-	currentVaultProcess, err = os.StartProcess(
+	loggingBuffer := &bytes.Buffer{}
+
+	go io.Copy(loggingBuffer, processOutputReader)
+	defer func() {
+		if currentVaultProcess == nil {
+			io.Copy(GinkgoWriter, loggingBuffer)
+		}
+	}()
+
+	process, err := os.StartProcess(
 		vaultProcessLocation, []string{vaultProcessLocation, "server", "-config", configLocation},
 		&os.ProcAttr{
 			Files: []*os.File{
@@ -171,13 +178,14 @@ func StartVault() {
 				processOutputWriter, //STDOUT
 				processOutputWriter, //STDERR
 			},
-		})
+		},
+	)
 	if err != nil {
 		panic(fmt.Sprintf("Could not start Vault process: %s", err))
 	}
 
 	go func() {
-		pState, err := currentVaultProcess.Wait()
+		pState, err := process.Wait()
 		if err != nil {
 			panic(fmt.Sprintf("Err encountered while waiting on vault process: %s", err))
 		}
@@ -190,15 +198,14 @@ func StartVault() {
 	everySoOften := time.NewTicker(100 * time.Millisecond)
 	client := NewTestClient()
 
-dance:
 	for {
 		select {
 		case <-everySoOften.C:
 			err = client.Health(true)
-			if err == nil {
-				break dance
-			} else if _, isUninitialized := err.(*vaultkv.ErrUninitialized); isUninitialized {
-				break dance
+			if err != nil {
+				if _, isUninitialized := err.(*vaultkv.ErrUninitialized); isUninitialized {
+					goto getMeOuttaHere
+				}
 			}
 
 			if time.Since(startTime) > nextWarning {
@@ -211,7 +218,9 @@ dance:
 			panic("Vault exited prematurely")
 		}
 	}
+getMeOuttaHere:
 
+	currentVaultProcess = process
 	everySoOften.Stop()
 }
 
@@ -225,20 +234,9 @@ func StopVault() {
 		panic(fmt.Sprintf("Could not send interrupt signal to Vault process: %s", err))
 	}
 
-	pState := <-processChan
-	if !pState.Exited() {
-		panic("Vault process failed to exit")
-	}
-
-	err = processOutputReader.Close()
-	if err != nil {
-		panic("Could not close process read file")
-	}
-
-	err = processOutputWriter.Close()
-	if err != nil {
-		panic("Could not close process write file")
-	}
+	_ = <-processChan
+	processOutputWriter.Close()
+	processOutputReader.Close()
 
 	currentVaultProcess = nil
 }

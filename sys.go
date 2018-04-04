@@ -46,7 +46,7 @@ func (v *Client) IsInitialized() (is bool, err error) {
 }
 
 type SealState struct {
-	//Type is not returned from
+	//Type is the type of unseal key. It is not returned from Unseal
 	Type   string `json:"type,omitempty"`
 	Sealed bool   `json:"sealed"`
 	//Threshold is the number of keys required to reconstruct the master key
@@ -69,16 +69,16 @@ func (v *Client) SealStatus() (ret *SealState, err error) {
 		"GET",
 		"/sys/seal-status",
 		nil,
-		ret)
+		&ret)
 
 	return
 }
 
 type InitVaultInput struct {
 	//Split the master key into this many shares
-	SecretShares int `json:"secret_shares"`
+	Shares int `json:"secret_shares"`
 	//This many shares are required to reconstruct the master key
-	SecretThreshold int `json:"secret_threshold"`
+	Threshold int `json:"secret_threshold"`
 }
 
 type InitVaultOutput struct {
@@ -88,13 +88,20 @@ type InitVaultOutput struct {
 }
 
 //InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
+// the root token and unseal keys that were generated. The token of the client
+// object is automatically set to the root token if the init is successful.
 func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) {
 	err = v.doSysRequest(
 		"PUT",
 		"/sys/init",
 		&in,
-		out,
+		&out,
 	)
+
+	if err == nil {
+		v.AuthToken = out.RootToken
+	}
+
 	return
 }
 
@@ -115,7 +122,7 @@ func (v *Client) Unseal(key string) (out *SealState, err error) {
 		}{
 			Key: key,
 		},
-		out,
+		&out,
 	)
 
 	return
@@ -129,13 +136,15 @@ func (v *Client) Health(standbyok bool) error {
 		boolStr = "true"
 	}
 	query.Add("standbyok", boolStr)
-	u := v.VaultURL
+	u := *v.VaultURL
 	u.Path = "/v1/sys/health"
 	u.RawQuery = query.Encode()
 	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return err
 	}
+
+	req.Header.Add("X-Vault-Token", v.AuthToken)
 	resp, err := v.Client.Do(req)
 	if err != nil {
 		return &ErrTransport{message: err.Error()}

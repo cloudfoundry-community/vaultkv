@@ -53,8 +53,7 @@ func (v *Client) doRequest(
 	if token == "" {
 		token = "01234567-89ab-cdef-0123-456789abcdef"
 	}
-
-	req.Header.Add("X-Vault-Token", v.AuthToken)
+	req.Header.Add("X-Vault-Token", token)
 
 	client := v.Client
 	if client == nil {

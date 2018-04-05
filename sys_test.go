@@ -8,8 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//TODO: Add tests for when the token is wrong / missing
-
 var _ = Describe("Sys", func() {
 	var vault *vaultkv.Client
 	var err error
@@ -140,24 +138,16 @@ var _ = Describe("Sys", func() {
 
 		When("the Vault has already been initialized", func() {
 			BeforeEach(func() {
-				_, err = vault.InitVault(vaultkv.InitVaultInput{
+				input = vaultkv.InitVaultInput{
 					Shares:    1,
 					Threshold: 1,
-				})
+				}
+				_, err = vault.InitVault(input)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			When("an otherwise legitimate init request is made", func() {
-				BeforeEach(func() {
-					input = vaultkv.InitVaultInput{
-						Shares:    1,
-						Threshold: 1,
-					}
-				})
-
-				It("should return an ErrBadRequest", AssertErrorOfType(&vaultkv.ErrBadRequest{}))
-				It("should be initialized", AssertInitializationStatus(true))
-			})
+			It("should return an ErrBadRequest", AssertErrorOfType(&vaultkv.ErrBadRequest{}))
+			It("should be initialized", AssertInitializationStatus(true))
 		})
 	})
 
@@ -209,6 +199,31 @@ var _ = Describe("Sys", func() {
 					It("should not return an error", AssertNoError())
 					Specify("Unseal should return that Vault is unsealed", AssertSealed(false))
 					Specify("SealStatus should return that the Vault is unsealed", AssertStatusSealed(false))
+
+					When("the auth token is missing", func() {
+						JustBeforeEach(func() {
+							vault.AuthToken = ""
+						})
+
+						Specify("SealStatus should return that the vault is unsealed", AssertStatusSealed(false))
+					})
+
+					When("an unseal is attempted after the vault is unsealed", func() {
+						BeforeEach(func() {
+							_, err = vault.Unseal(unsealKey)
+							Expect(err).NotTo(HaveOccurred())
+						})
+
+						It("should not return an error", AssertNoError())
+						Specify("Unseal should return that Vault is unsealed", AssertSealed(false))
+						Specify("SealStatus should return that the Vault is unsealed", AssertStatusSealed(false))
+					})
+
+					When("an unseal reset is requested after the vault is unsealed", func() {
+						It("should not return an error", AssertNoError())
+						Specify("Unseal should return that Vault is unsealed", AssertSealed(false))
+						Specify("SealStatus should return that the Vault is unsealed", AssertStatusSealed(false))
+					})
 				})
 
 				When("the unseal key is wrong", func() {
@@ -255,6 +270,26 @@ var _ = Describe("Sys", func() {
 					It("should increase the progress count", AssertProgressIs(1))
 					Specify("Unseal should return that the vault is still sealed", AssertSealed(true))
 					Specify("SealStatus should return that the Vault is still sealed", AssertStatusSealed(true))
+
+					Context("and then another key is given", func() {
+						JustBeforeEach(func() {
+							output, err = vault.Unseal(initOut.Keys[1])
+						})
+
+						It("should not return an error", AssertNoError())
+						It("should increase the progress count", AssertProgressIs(2))
+						Specify("Unseal should return that the vault is still sealed", AssertSealed(true))
+						Specify("SealStatus should return that the Vault is still sealed", AssertStatusSealed(true))
+					})
+
+					Context("and then the unseal attempt is reset", func() {
+						JustBeforeEach(func() {
+							err = vault.ResetUnseal()
+						})
+
+						It("should not return an error", AssertNoError())
+						It("should reset the progress count", AssertProgressIs(0))
+					})
 				})
 			})
 		})
@@ -336,6 +371,14 @@ var _ = Describe("Sys", func() {
 				})
 
 				It("should not return an error", AssertNoError())
+
+				When("the auth token is wrong", func() {
+					BeforeEach(func() {
+						vault.AuthToken = ""
+					})
+
+					It("should not return an error", AssertNoError())
+				})
 			})
 		})
 	})

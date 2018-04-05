@@ -90,6 +90,7 @@ type InitVaultOutput struct {
 //InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
 // the root token and unseal keys that were generated. The token of the client
 // object is automatically set to the root token if the init is successful.
+//If the vault has already been initialized, this returns *ErrBadRequest
 func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) {
 	err = v.doSysRequest(
 		"PUT",
@@ -106,20 +107,18 @@ func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) 
 }
 
 //Seal puts to the /sys/seal endpoint to seal the Vault.
+// If the Vault is already sealed, this doesn't return an error.
+// If the Vault is unsealed and an incorrect token is provided, then this
+// returns *ErrForbidden.
 func (v *Client) Seal() error {
-	err := v.doSysRequest("PUT", "/sys/seal", nil, nil)
-	if _, is500 := err.(*ErrInternalServer); is500 {
-		if strings.Contains(err.Error(), "missing client token") {
-			err = &ErrForbidden{message: err.Error()}
-		}
-	}
-
-	return err
+	return v.doSysRequest("PUT", "/sys/seal", nil, nil)
 }
 
 //Unseal puts to the /sys/unseal endpoint with a single key to progress the
-// unseal attempt. If the unseal was successful, then the Sealed member of the
-// returned struct will be false
+//unseal attempt. If the unseal was successful, then the Sealed member of the
+//returned struct will be false. If the given unseal key is improperly
+//formatted, an *ErrBadRequest is returned. If the vault is already unsealed,
+//no error is returned
 func (v *Client) Unseal(key string) (out *SealState, err error) {
 	err = v.doSysRequest(
 		"PUT",
@@ -130,6 +129,24 @@ func (v *Client) Unseal(key string) (out *SealState, err error) {
 			Key: key,
 		},
 		&out,
+	)
+
+	return
+}
+
+//ResetUnseal resets the current unseal attempt, such that the progress towards
+//an unseal becomes 0. If the vault is unsealed, nothing happens and no error
+//is returned.
+func (v *Client) ResetUnseal() (err error) {
+	err = v.doSysRequest(
+		"PUT",
+		"/sys/unseal",
+		&struct {
+			Reset bool `json:"reset"`
+		}{
+			Reset: true,
+		},
+		nil,
 	)
 
 	return

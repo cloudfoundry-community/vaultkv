@@ -36,12 +36,20 @@ func TestVaultkv(t *testing.T) {
 	}
 }
 
-var vaultVersions = []string{
-	"0.6.5",
-	"0.7.3",
-	"0.8.3",
-	"0.9.6",
+func init() {
+	vaultVersions = []string{
+		"0.6.5",
+		"0.7.3",
+		"0.8.3",
+		"0.9.6",
+	}
+
+	if os.Getenv("VAULTKV_TEST_ONLY_LATEST") != "" {
+		vaultVersions = vaultVersions[len(vaultVersions)-1:]
+	}
 }
+
+var vaultVersions []string
 var currentVaultVersion string
 
 var currentVaultProcess *os.Process

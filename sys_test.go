@@ -38,7 +38,7 @@ var _ = Describe("Sys", func() {
 	}
 
 	BeforeEach(func() {
-		StartVault()
+		StartVault(currentVaultVersion)
 		vault = NewTestClient()
 	})
 
@@ -291,7 +291,17 @@ var _ = Describe("Sys", func() {
 				})
 				It("should not return an error", AssertNoError())
 				Specify("The vault should be sealed", AssertStatusSealed(true))
+
+				Context("but the user is not authenticated", func() {
+					BeforeEach(func() {
+						vault.AuthToken = ""
+					})
+
+					It("should return ErrForbidden", AssertErrorOfType(&vaultkv.ErrForbidden{}))
+					Specify("The vault should remain unsealed", AssertStatusSealed(false))
+				})
 			})
+
 		})
 	})
 

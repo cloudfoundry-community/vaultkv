@@ -1,6 +1,7 @@
 package vaultkv_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
@@ -16,7 +17,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -27,8 +29,20 @@ import (
 
 func TestVaultkv(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Vaultkv Suite")
+	for _, version := range vaultVersions {
+		currentVaultVersion = version
+		RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
+		fmt.Println("")
+	}
 }
+
+var vaultVersions = []string{
+	"0.6.5",
+	"0.7.3",
+	"0.8.3",
+	"0.9.6",
+}
+var currentVaultVersion string
 
 var currentVaultProcess *os.Process
 var processChan = make(chan *os.ProcessState)
@@ -43,14 +57,94 @@ var (
 
 var vaultURI *url.URL
 
-var _ = BeforeSuite(func() {
-	var err error
+func buildVaultPath(version string) string {
+	return fmt.Sprintf("/tmp/testvaults/vault-%s-%s", runtime.GOOS, version)
+}
 
-	vaultProcessLocation, err = exec.LookPath("vault")
+func downloadVault(version string) error {
+	fmt.Printf("Downloading Vault version %s... ", version)
+	_, err := os.Stat(filepath.Dir(buildVaultPath(version)))
 	if err != nil {
-		panic("vault was not found in your PATH")
+		if os.IsNotExist(err) {
+			err = os.Mkdir(filepath.Dir(buildVaultPath(version)), 0755)
+			if err != nil {
+				return fmt.Errorf("Could not create dir `%s': %s", filepath.Dir(buildVaultPath(version)), err.Error())
+			}
+		}
+
+		if err != nil {
+			return fmt.Errorf("Could not stat `%s': %s", filepath.Dir(buildVaultPath(version)), err.Error())
+		}
 	}
 
+	vaultZipFile, err := os.OpenFile(fmt.Sprintf("%s.zip", buildVaultPath(version)),
+		os.O_RDWR|os.O_CREATE|os.O_EXCL|os.O_TRUNC,
+		0755)
+	if err != nil {
+		return fmt.Errorf("Could not open Vault target zip file `%s.zip' for writing: %s", buildVaultPath(version), err.Error())
+	}
+
+	vaultDownloadURL := fmt.Sprintf("https://releases.hashicorp.com/vault/%[1]s/vault_%[1]s_%[2]s_%[3]s.zip",
+		version,
+		runtime.GOOS,
+		runtime.GOARCH,
+	)
+	resp, err := http.Get(vaultDownloadURL)
+
+	if err != nil {
+		return fmt.Errorf("Could not download Vault from URL `%s': %s", vaultDownloadURL, err.Error())
+	}
+
+	bytesRead, err := io.Copy(vaultZipFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("Error when reading response body: %s", err.Error())
+	}
+	if bytesRead == 0 {
+		return fmt.Errorf("No Vault binary was recieved from the remote")
+	}
+
+	zipReader, err := zip.NewReader(vaultZipFile, bytesRead)
+	if err != nil {
+		return fmt.Errorf("Could not prepare `%s' for zip decompression: %s", vaultZipFile.Name(), err.Error())
+	}
+
+	zipFile, err := zipReader.File[0].Open()
+	if err != nil {
+		return fmt.Errorf("Could not open first (and hopefully only) file in Vault zip archive: %s", err.Error())
+	}
+
+	vaultFile, err := os.OpenFile(buildVaultPath(version),
+		os.O_RDWR|os.O_CREATE|os.O_EXCL|os.O_TRUNC,
+		0755)
+	if err != nil {
+		return fmt.Errorf("Could not open Vault target file `%s' for writing: %s", buildVaultPath(version), err.Error())
+	}
+
+	_, err = io.Copy(vaultFile, zipFile)
+	if err != nil {
+		return fmt.Errorf("Could not unzip vault binary: %s", err.Error())
+	}
+
+	err = vaultZipFile.Close()
+	if err != nil {
+		return fmt.Errorf("Could not close vault zip file")
+	}
+	err = os.Remove(vaultZipFile.Name())
+	if err != nil {
+		return fmt.Errorf("Could not clean up vault zip file")
+	}
+
+	err = vaultFile.Close()
+	if err != nil {
+		return fmt.Errorf("Could not close vault file")
+	}
+
+	fmt.Printf("Successfully downloaded Vault version %s\n", version)
+	return nil
+}
+
+var _ = BeforeSuite(func() {
+	var err error
 	const uriStr = "https://127.0.0.1:8201"
 	vaultURI, err = url.Parse(uriStr)
 	if err != nil {
@@ -114,7 +208,7 @@ var _ = BeforeSuite(func() {
 	}
 	configLocation = configFile.Name()
 	var vaultConfig = fmt.Sprintf(`
-storage "inmem" {}
+backend "inmem" {}
 
 disable_mlock = true
 
@@ -128,6 +222,7 @@ listener "tcp" {
 	if err != nil {
 		panic(fmt.Sprintf("Could not write test config to file: %s", err))
 	}
+
 })
 
 var _ = AfterSuite(func() {
@@ -148,12 +243,23 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func StartVault() {
+func StartVault(version string) {
 	if currentVaultProcess != nil {
 		panic("Clean up your vault process")
 	}
 
 	var err error
+	_, err = os.Stat(buildVaultPath(version))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			panic(fmt.Sprintf("Could not lookup Vault path `%s': %s", buildVaultPath(version), err.Error()))
+		}
+
+		err = downloadVault(version)
+		if err != nil {
+			panic(fmt.Sprintf("When downloading Vault version `%s': %s", version, err.Error()))
+		}
+	}
 
 	//Gotta get that IPC from Vault in case we want to report errors
 	processOutputReader, processOutputWriter, err = os.Pipe()
@@ -171,7 +277,7 @@ func StartVault() {
 	}()
 
 	process, err := os.StartProcess(
-		vaultProcessLocation, []string{vaultProcessLocation, "server", "-config", configLocation},
+		buildVaultPath(version), []string{buildVaultPath(version), "server", "-config", configLocation},
 		&os.ProcAttr{
 			Files: []*os.File{
 				nil,                 //STDIN

@@ -107,7 +107,14 @@ func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) 
 
 //Seal puts to the /sys/seal endpoint to seal the Vault.
 func (v *Client) Seal() error {
-	return v.doSysRequest("PUT", "/sys/seal", nil, nil)
+	err := v.doSysRequest("PUT", "/sys/seal", nil, nil)
+	if _, is500 := err.(*ErrInternalServer); is500 {
+		if strings.Contains(err.Error(), "missing client token") {
+			err = &ErrForbidden{message: err.Error()}
+		}
+	}
+
+	return err
 }
 
 //Unseal puts to the /sys/unseal endpoint with a single key to progress the

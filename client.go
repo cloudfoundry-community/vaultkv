@@ -17,7 +17,7 @@ type Client struct {
 	//If Client is nil, http.DefaultClient will be used
 	Client *http.Client
 	//If Trace is non-nil, information about HTTP requests will be given into the
-	//reader.
+	//Writer.
 	Trace io.Writer
 }
 

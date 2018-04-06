@@ -23,7 +23,7 @@ func (v *Client) List(path string) ([]string, error) {
 	ret := []string{}
 
 	err := v.doRequest("LIST", path, nil, &vaultResponse{
-		Data: struct {
+		Data: &struct {
 			Keys *[]string `json:"keys"`
 		}{
 			Keys: &ret,
@@ -45,6 +45,8 @@ func (v *Client) Set(path string, values map[string]string) error {
 	return nil
 }
 
+//Delete attempts to delete the value at the specified path. No error is
+//returned if there is already no value at the given path.
 func (v *Client) Delete(path string) error {
 	err := v.doRequest("DELETE", path, nil, nil)
 	if err != nil {

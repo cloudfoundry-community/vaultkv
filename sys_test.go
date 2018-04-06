@@ -1,7 +1,11 @@
 package vaultkv_test
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"github.com/cloudfoundry-community/vaultkv"
 	. "github.com/onsi/ginkgo"
@@ -9,21 +13,6 @@ import (
 )
 
 var _ = Describe("Sys", func() {
-	var vault *vaultkv.Client
-	var err error
-
-	var AssertNoError = func() func() {
-		return func() {
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}
-
-	var AssertErrorOfType = func(t interface{}) func() {
-		return func() {
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(BeAssignableToTypeOf(t))
-		}
-	}
 
 	//Uses SealStatus to get seal state
 	var AssertStatusSealed = func(expected bool) func() {
@@ -34,13 +23,6 @@ var _ = Describe("Sys", func() {
 			Expect(state.Sealed).To(Equal(expected))
 		}
 	}
-
-	BeforeEach(func() {
-		StartVault(currentVaultVersion)
-		vault = NewTestClient()
-	})
-
-	AfterEach(StopVault)
 
 	Describe("SealStatus", func() {
 		JustBeforeEach(func() {
@@ -71,6 +53,17 @@ var _ = Describe("Sys", func() {
 				Expect(output).ToNot(BeNil())
 				Expect(output.Keys).To(HaveLen(numKeys))
 				Expect(output.KeysBase64).To(HaveLen(numKeys))
+				for i, key := range output.Keys {
+					//Decode the base64
+					buf := strings.NewReader(output.KeysBase64[i])
+					b64decoder := base64.NewDecoder(base64.StdEncoding, buf)
+					b64decoded, err := ioutil.ReadAll(b64decoder)
+					Expect(err).NotTo(HaveOccurred(), "should not have erred on decoding base64")
+					//Encode into hex
+					hexEncoded := hex.EncodeToString(b64decoded)
+					Expect(string(hexEncoded)).To(Equal(key),
+						fmt.Sprintf("base64 string `%s' does not decode to the same string as the hex string `%s' decodes", output.KeysBase64[i], key))
+				}
 			}
 		}
 

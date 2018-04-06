@@ -28,11 +28,25 @@ import (
 )
 
 func TestVaultkv(t *testing.T) {
+
+	BeforeEach(func() {
+		StartVault(currentVaultVersion)
+		vault = NewTestClient()
+	})
+
+	AfterEach(StopVault)
 	RegisterFailHandler(Fail)
-	for _, version := range vaultVersions {
+	for i, version := range vaultVersions {
 		currentVaultVersion = version
 		RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
-		fmt.Println("")
+		if i != len(vaultVersions)-1 {
+			fmt.Println("")
+			fmt.Println("")
+			fmt.Println("========================================================")
+			fmt.Println(`|/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\|`)
+			fmt.Println("========================================================")
+			fmt.Println("")
+		}
 	}
 }
 
@@ -48,6 +62,10 @@ func init() {
 		vaultVersions = vaultVersions[len(vaultVersions)-1:]
 	}
 }
+
+//The current vault client used by each spec
+var vault *vaultkv.Client
+var err error
 
 var vaultVersions []string
 var currentVaultVersion string
@@ -365,5 +383,19 @@ func NewTestClient() *vaultkv.Client {
 				},
 			},
 		},
+		Trace: GinkgoWriter,
+	}
+}
+
+func AssertNoError() func() {
+	return func() {
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+func AssertErrorOfType(t interface{}) func() {
+	return func() {
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(BeAssignableToTypeOf(t))
 	}
 }

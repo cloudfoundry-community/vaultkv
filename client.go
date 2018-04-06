@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 )
@@ -15,6 +16,9 @@ type Client struct {
 	VaultURL  *url.URL
 	//If Client is nil, http.DefaultClient will be used
 	Client *http.Client
+	//If Trace is non-nil, information about HTTP requests will be given into the
+	//reader.
+	Trace io.Writer
 }
 
 type vaultResponse struct {
@@ -28,7 +32,7 @@ func (v *Client) doRequest(
 	output interface{}) error {
 
 	u := v.VaultURL
-	u.Path = fmt.Sprintf("/v1/%s", strings.TrimPrefix(path, "/"))
+	u.Path = fmt.Sprintf("/v1/%s", strings.Trim(path, "/"))
 
 	var body io.Reader
 	if input != nil {
@@ -48,6 +52,10 @@ func (v *Client) doRequest(
 	if err != nil {
 		return err
 	}
+	if v.Trace != nil {
+		dump, _ := httputil.DumpRequest(req, true)
+		v.Trace.Write([]byte(fmt.Sprintf("Request:\n%s\n", dump)))
+	}
 
 	token := v.AuthToken
 	if token == "" {
@@ -65,6 +73,11 @@ func (v *Client) doRequest(
 		return &ErrTransport{message: err.Error()}
 	}
 	defer resp.Body.Close()
+
+	if v.Trace != nil {
+		dump, _ := httputil.DumpResponse(resp, true)
+		v.Trace.Write([]byte(fmt.Sprintf("Response:\n%s\n", dump)))
+	}
 
 	if resp.StatusCode/100 != 2 {
 		err = v.parseError(resp)

@@ -1,6 +1,26 @@
 package vaultkv
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
+
+//Rekey represents a rekey operation currently in progress in the Vault. This
+// wraps an otherwise cumbersome rekey API. Remaining() can be called to see
+// how many keys are still required by the rekey, and then those many keys
+// can be sent through one or more calls to Submit()
+type Rekey struct {
+	client *Client
+	state  RekeyState
+	keys   []string
+}
+type RekeyConfig struct {
+	Shares          int      `json:"secret_shares"`
+	Threshold       int      `json:"secret_threshold`
+	PGPKeys         []string `json:"pgp_keys"`
+	pgpFingerprints []string
+	Backup          bool `json:"backup"`
+}
 
 type RekeyState struct {
 	Started          bool   `json:"started"`
@@ -13,44 +33,113 @@ type RekeyState struct {
 	Required        int      `json:"required"`
 	PGPFingerprints []string `json:"pgp_fingerprints"`
 	Backup          bool     `json:"backup"`
-	//These come in after rekey completion
-	Complete   bool     `json:"complete"`
-	Keys       []string `json:"`
-	KeysBase64 []string
 }
 
-func (v *Client) RekeyStatus() (ret *RekeyState, err error) {
-	err = v.doSysRequest("GET", "/sys/rekey/init", nil, &ret)
-	return ret, err
+//NewRekey will cancel the current rekey if one is in progress. If starting a
+// rekey is successful, a *Rekey is returned containing the necessary state
+// for submitting keys for this rekey operation.
+func (v *Client) NewRekey(conf RekeyConfig) (*Rekey, error) {
+	_, err := v.CurrentRekey()
+	if err != nil {
+		if _, is404 := err.(*ErrNotFound); !is404 {
+			return nil, err
+		}
+
+		err = v.rekeyCancel()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = v.rekeyStart(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return v.CurrentRekey()
 }
 
-type RekeyStartInput struct {
-	Shares    int      `json:"secret_shares"`
-	Threshold int      `json:"secret_threshold`
-	PGPKeys   []string `json:"pgp_keys"`
-	Backup    bool     `json:"backup"`
+//CurrentRekey returns a *Rekey with the state necessary to continue a rekey
+// operation if one is in progress. If no rekey is in progress, *ErrNotFound
+// is returned and no *Rekey is returned.
+func (v *Client) CurrentRekey() (*Rekey, error) {
+	var state RekeyState
+	err := v.doSysRequest("GET", "/sys/rekey/init", nil, &state)
+	if err != nil {
+		return nil, err
+	}
+
+	if !state.Started {
+		return nil, &ErrNotFound{message: "No rekey in progress"}
+	}
+
+	return &Rekey{
+		client: v,
+		state:  state,
+	}, nil
 }
 
-func (v *Client) RekeyStart(input RekeyStartInput) error {
-	return v.doSysRequest("PUT", "/sys/rekey/init", &input, nil)
+func (v *Client) rekeyStart(conf RekeyConfig) error {
+	return v.doSysRequest("PUT", "/sys/rekey/init", &conf, nil)
 }
 
-func (v *Client) RekeyCancel() error {
+//Cancel tells Vault to forget about the current rekey operation
+func (r *Rekey) Cancel() error {
+	return r.client.rekeyCancel()
+}
+
+func (v *Client) rekeyCancel() error {
 	return v.doSysRequest("DELETE", "/sys/rekey/init", nil, nil)
 }
 
-type RekeyKeys struct {
-	Keys            []string `json:"keys"`
-	KeysBase64      []string `json:"keys_base64"`
-	PGPFingerprints []string `json:"pgp_fingerprints"`
-	Backup          bool     `json:"backup"`
+//Submit gives keys to the rekey operation specified by this *Rekey object. Any
+//keys beyond the current required amount are ignored. If the Rekey is
+//successful after all keys have been sent, then done will be returned as true.
+//If the threshold is reached and any of the keys were incorrect, an
+//*ErrBadRequest is returned and done is false. In this case, the rekey is not
+//cancelled, but is instead reset. No error is given for an incorrect key
+//before the threshold is reached. An *ErrBadRequest may also be returned if
+//there is no longer any rekey in progress, but in this case, done will be
+//returned to true.
+func (r *Rekey) Submit(keys ...string) (done bool, err error) {
+	for _, key := range keys {
+		var result interface{}
+		result, err = r.client.rekeySubmit(key, r.state.Nonce)
+		if err != nil {
+			if ebr, is400 := err.(*ErrBadRequest); is400 {
+				r.state.Progress = 0
+				//I really hate error string checking, but there's no good way that doesn't
+				//require another API call (which could, in turn, err, and leave us in a
+				//wrong state)
+				if strings.Contains(ebr.message, "no rekey in progress") {
+					done = true
+				}
+			}
+
+			return
+		}
+
+		switch v := result.(type) {
+		case *RekeyState:
+			r.state = *v
+		case *rekeyKeys:
+			r.keys = v.Keys
+			return true, nil
+
+		default:
+			panic("rekeySubmit gave an unknown type")
+		}
+	}
+
+	return false, nil
 }
 
-//RekeySubmit takes an unseal key and the nonce of the current rekey operation
-//and submits it to Vault. If an error occurs, only err will be non-nil. If the
-//rekey is still in progress after the submission, only state will be non-nil.
-//If the rekey was successful, then only keys will be non-nil.
-func (v *Client) RekeySubmit(key string, nonce string) (state *RekeyState, keys *RekeyKeys, err error) {
+type rekeyKeys struct {
+	Keys       []string `json:"keys"`
+	KeysBase64 []string `json:"keys_base64"`
+}
+
+func (v *Client) rekeySubmit(key string, nonce string) (ret interface{}, err error) {
 	tempMap := make(map[string]interface{})
 	err = v.doSysRequest(
 		"PUT",
@@ -73,9 +162,9 @@ func (v *Client) RekeySubmit(key string, nonce string) (state *RekeyState, keys 
 		return
 	}
 
-	var unmarshalTarget interface{} = state
+	var unmarshalTarget interface{} = &RekeyState{}
 	if _, isComplete := tempMap["complete"]; isComplete {
-		unmarshalTarget = keys
+		unmarshalTarget = &rekeyKeys{}
 	}
 
 	err = json.Unmarshal(jBytes, &unmarshalTarget)
@@ -83,5 +172,22 @@ func (v *Client) RekeySubmit(key string, nonce string) (state *RekeyState, keys 
 		return
 	}
 
-	return
+	return unmarshalTarget, err
+}
+
+//Remaining returns the number of keys yet required by this rekey operation.
+func (r *Rekey) Remaining() int {
+	return r.state.Required - r.state.Progress
+}
+
+//State returns the current state of the rekey operation.
+func (r *Rekey) State() RekeyState {
+	return r.state
+}
+
+//Keys returns the new keys from this rekey operation if the operation has been
+//successful. The return value is undefined if the rekey operation is not yet
+//successful.
+func (r *Rekey) Keys() []string {
+	return r.keys
 }

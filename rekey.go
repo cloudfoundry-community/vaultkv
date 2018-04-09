@@ -39,16 +39,9 @@ type RekeyState struct {
 // rekey is successful, a *Rekey is returned containing the necessary state
 // for submitting keys for this rekey operation.
 func (v *Client) NewRekey(conf RekeyConfig) (*Rekey, error) {
-	_, err := v.CurrentRekey()
+	err := v.rekeyCancel()
 	if err != nil {
-		if _, is404 := err.(*ErrNotFound); !is404 {
-			return nil, err
-		}
-
-		err = v.rekeyCancel()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	err = v.rekeyStart(conf)

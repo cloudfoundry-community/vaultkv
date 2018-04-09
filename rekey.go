@@ -14,14 +14,19 @@ type Rekey struct {
 	state  RekeyState
 	keys   []string
 }
+
+//RekeyConfig is given to NewRekey to configure the parameters of the rekey
+//operation to be started.
 type RekeyConfig struct {
 	Shares          int      `json:"secret_shares"`
-	Threshold       int      `json:"secret_threshold`
+	Threshold       int      `json:"secret_threshold"`
 	PGPKeys         []string `json:"pgp_keys"`
 	pgpFingerprints []string
 	Backup          bool `json:"backup"`
 }
 
+//RekeyState gives the state of the rekey operation as of the last call to
+//Submit, NewRekey, or CurrentRekey.
 type RekeyState struct {
 	Started          bool   `json:"started"`
 	Nonce            string `json:"nonce"`
@@ -169,11 +174,16 @@ func (v *Client) rekeySubmit(key string, nonce string) (ret interface{}, err err
 }
 
 //Remaining returns the number of keys yet required by this rekey operation.
+//This does not refresh state. If you believe that an external agent may have
+//changed the state of the rekey, get a new rekey object with CurrentRekey, or
+//Submit another key.
 func (r *Rekey) Remaining() int {
 	return r.state.Required - r.state.Progress
 }
 
-//State returns the current state of the rekey operation.
+//State returns the current state of the rekey operation. This does not refresh
+// state. If you believe that an external agent may have changed the state of
+// the rekey, get a new rekey object with CurrentRekey, or Submit another key.
 func (r *Rekey) State() RekeyState {
 	return r.state
 }

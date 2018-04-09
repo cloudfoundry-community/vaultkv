@@ -88,6 +88,20 @@ var _ = Describe("Sys", func() {
 				It("should return a root token", AssertHasRootToken())
 				It("should have one unseal key", AssertHasUnsealKeys(1))
 				It("should be initialized", AssertInitializationStatus(true))
+
+				Describe("Unseal with an InitVaultOutput", func() {
+					JustBeforeEach(func() {
+						err = output.Unseal()
+					})
+
+					It("should not return an error", AssertNoError())
+					Specify("SealStatus should return unsealed", func() {
+						sealState, err := vault.SealStatus()
+						Expect(err).NotTo(HaveOccurred())
+						Expect(sealState).NotTo(BeNil())
+						Expect(sealState.Sealed).To(BeFalse())
+					})
+				})
 			})
 
 			When("there are multiple secret shares", func() {

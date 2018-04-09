@@ -74,24 +74,42 @@ func (v *Client) SealStatus() (ret *SealState, err error) {
 	return
 }
 
-type InitVaultInput struct {
+type InitConfig struct {
 	//Split the master key into this many shares
 	Shares int `json:"secret_shares"`
 	//This many shares are required to reconstruct the master key
 	Threshold int `json:"secret_threshold"`
+	//TODO: Add GPG stuff
 }
 
 type InitVaultOutput struct {
+	client     *Client
 	Keys       []string `json:"keys"`
 	KeysBase64 []string `json:"keys_base64"`
 	RootToken  string   `json:"root_token"`
+}
+
+func (i *InitVaultOutput) Unseal() error {
+	for _, key := range i.Keys {
+		sealState, err := i.client.Unseal(key)
+		if err != nil {
+			return err
+		}
+
+		if !sealState.Sealed {
+			break
+		}
+	}
+
+	return nil
 }
 
 //InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
 // the root token and unseal keys that were generated. The token of the client
 // object is automatically set to the root token if the init is successful.
 //If the vault has already been initialized, this returns *ErrBadRequest
-func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) {
+func (v *Client) InitVault(in InitConfig) (out *InitVaultOutput, err error) {
+	out = &InitVaultOutput{}
 	err = v.doSysRequest(
 		"PUT",
 		"/sys/init",
@@ -102,6 +120,8 @@ func (v *Client) InitVault(in InitVaultInput) (out *InitVaultOutput, err error) 
 	if err == nil {
 		v.AuthToken = out.RootToken
 	}
+
+	out.client = v
 
 	return
 }
@@ -120,6 +140,7 @@ func (v *Client) Seal() error {
 //formatted, an *ErrBadRequest is returned. If the vault is already unsealed,
 //no error is returned
 func (v *Client) Unseal(key string) (out *SealState, err error) {
+	out = &SealState{}
 	err = v.doSysRequest(
 		"PUT",
 		"/sys/unseal",

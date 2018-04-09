@@ -74,7 +74,7 @@ var _ = Describe("Kv", func() {
 	When("the vault is initialized", func() {
 		var initOut *vaultkv.InitVaultOutput
 		BeforeEach(func() {
-			initOut, err = vault.InitVault(vaultkv.InitVaultInput{
+			initOut, err = vault.InitVault(vaultkv.InitConfig{
 				Shares:    1,
 				Threshold: 1,
 			})

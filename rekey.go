@@ -8,7 +8,9 @@ import (
 //Rekey represents a rekey operation currently in progress in the Vault. This
 // wraps an otherwise cumbersome rekey API. Remaining() can be called to see
 // how many keys are still required by the rekey, and then those many keys
-// can be sent through one or more calls to Submit()
+// can be sent through one or more calls to Submit(). This should be created
+// through a call to NewRekey or CurrentRekey. Using an uninitialized Rekey
+// struct will lead to undefined behavior.
 type Rekey struct {
 	client *Client
 	state  RekeyState
@@ -20,9 +22,9 @@ type Rekey struct {
 type RekeyConfig struct {
 	Shares          int      `json:"secret_shares"`
 	Threshold       int      `json:"secret_threshold"`
-	PGPKeys         []string `json:"pgp_keys"`
+	PGPKeys         []string `json:"pgp_keys,omitempty"`
 	pgpFingerprints []string
-	Backup          bool `json:"backup"`
+	Backup          bool `json:"backup,omitempty"`
 }
 
 //RekeyState gives the state of the rekey operation as of the last call to
@@ -98,7 +100,7 @@ func (v *Client) rekeyCancel() error {
 //cancelled, but is instead reset. No error is given for an incorrect key
 //before the threshold is reached. An *ErrBadRequest may also be returned if
 //there is no longer any rekey in progress, but in this case, done will be
-//returned to true.
+//returned as true.
 func (r *Rekey) Submit(keys ...string) (done bool, err error) {
 	for _, key := range keys {
 		var result interface{}
@@ -122,6 +124,7 @@ func (r *Rekey) Submit(keys ...string) (done bool, err error) {
 			r.state = *v
 		case *rekeyKeys:
 			r.keys = v.Keys
+			r.state = RekeyState{}
 			return true, nil
 
 		default:

@@ -36,7 +36,7 @@ var _ = Describe("Sys", func() {
 
 	Describe("Initialization", func() {
 		var output *vaultkv.InitVaultOutput
-		var input vaultkv.InitVaultInput
+		var input vaultkv.InitConfig
 		JustBeforeEach(func() {
 			output, err = vault.InitVault(input)
 		})
@@ -78,7 +78,7 @@ var _ = Describe("Sys", func() {
 		When("the Vault is not initialized", func() {
 			When("there's only one secret share", func() {
 				BeforeEach(func() {
-					input = vaultkv.InitVaultInput{
+					input = vaultkv.InitConfig{
 						Shares:    1,
 						Threshold: 1,
 					}
@@ -92,7 +92,7 @@ var _ = Describe("Sys", func() {
 
 			When("there are multiple secret shares", func() {
 				BeforeEach(func() {
-					input = vaultkv.InitVaultInput{
+					input = vaultkv.InitConfig{
 						Shares:    3,
 						Threshold: 2,
 					}
@@ -106,7 +106,7 @@ var _ = Describe("Sys", func() {
 
 			When("0 secret shares are requested", func() {
 				BeforeEach(func() {
-					input = vaultkv.InitVaultInput{
+					input = vaultkv.InitConfig{
 						Shares:    0,
 						Threshold: 0,
 					}
@@ -118,7 +118,7 @@ var _ = Describe("Sys", func() {
 
 			When("the threshold is larger than the number of shares", func() {
 				BeforeEach(func() {
-					input = vaultkv.InitVaultInput{
+					input = vaultkv.InitConfig{
 						Shares:    3,
 						Threshold: 4,
 					}
@@ -131,7 +131,7 @@ var _ = Describe("Sys", func() {
 
 		When("the Vault has already been initialized", func() {
 			BeforeEach(func() {
-				input = vaultkv.InitVaultInput{
+				input = vaultkv.InitConfig{
 					Shares:    1,
 					Threshold: 1,
 				}
@@ -178,7 +178,7 @@ var _ = Describe("Sys", func() {
 			var initOut *vaultkv.InitVaultOutput
 			Context("with one share", func() {
 				BeforeEach(func() {
-					initOut, err = vault.InitVault(vaultkv.InitVaultInput{
+					initOut, err = vault.InitVault(vaultkv.InitConfig{
 						Shares:    1,
 						Threshold: 1,
 					})
@@ -242,7 +242,7 @@ var _ = Describe("Sys", func() {
 
 			Context("with a threshold greater than one", func() {
 				BeforeEach(func() {
-					initOut, err = vault.InitVault(vaultkv.InitVaultInput{
+					initOut, err = vault.InitVault(vaultkv.InitConfig{
 						Shares:    3,
 						Threshold: 3,
 					})
@@ -300,7 +300,7 @@ var _ = Describe("Sys", func() {
 		When("the vault is initialized", func() {
 			var initOut *vaultkv.InitVaultOutput
 			BeforeEach(func() {
-				initOut, err = vault.InitVault(vaultkv.InitVaultInput{
+				initOut, err = vault.InitVault(vaultkv.InitConfig{
 					Shares:    1,
 					Threshold: 1,
 				})
@@ -345,7 +345,7 @@ var _ = Describe("Sys", func() {
 		When("the vault is initialized", func() {
 			var initOut *vaultkv.InitVaultOutput
 			BeforeEach(func() {
-				initOut, err = vault.InitVault(vaultkv.InitVaultInput{
+				initOut, err = vault.InitVault(vaultkv.InitConfig{
 					Shares:    1,
 					Threshold: 1,
 				})

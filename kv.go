@@ -1,3 +1,5 @@
+//Package vaultkv provides a client with functions that make API calls that a user of
+// Vault may commonly want.
 package vaultkv
 
 //Get retrieves the secret at the given path and unmarshals it into the given

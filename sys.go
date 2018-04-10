@@ -80,8 +80,9 @@ type InitConfig struct {
 	//Split the master key into this many shares
 	Shares int `json:"secret_shares"`
 	//This many shares are required to reconstruct the master key
-	Threshold int `json:"secret_threshold"`
-	//TODO: Add GPG stuff
+	Threshold       int      `json:"secret_threshold"`
+	RootTokenPGPKey string   `json:"root_token_pgp_key"`
+	PGPKeys         []string `json:"pgp_keys"`
 }
 
 type InitVaultOutput struct {

@@ -22,11 +22,10 @@ type Rekey struct {
 //RekeyConfig is given to NewRekey to configure the parameters of the rekey
 //operation to be started.
 type RekeyConfig struct {
-	Shares          int      `json:"secret_shares"`
-	Threshold       int      `json:"secret_threshold"`
-	PGPKeys         []string `json:"pgp_keys,omitempty"`
-	pgpFingerprints []string
-	Backup          bool `json:"backup,omitempty"`
+	Shares    int      `json:"secret_shares"`
+	Threshold int      `json:"secret_threshold"`
+	PGPKeys   []string `json:"pgp_keys,omitempty"`
+	Backup    bool     `json:"backup,omitempty"`
 }
 
 //RekeyState gives the state of the rekey operation as of the last call to

@@ -1,9 +1,11 @@
-//Package vaultkv provides a client with functions that make API calls that a user of
-// Vault may commonly want.
 package vaultkv
 
 import "fmt"
 
+//AuthOutput is the general structure as returned by AuthX functions. The
+//Metadata member type is determined by the specific Auth function. Note that
+//the Vault must be initialized and unsealed in order to use authentication
+//endpoints.
 type AuthOutput struct {
 	LeaseID       string `json:"lease_id"`
 	Renewable     bool   `json:"renewable"`
@@ -17,11 +19,16 @@ type AuthOutput struct {
 	Metadata interface{} `json:"metadata"`
 }
 
+//AuthGithubMetadata is the metadata member set by AuthGithub.
 type AuthGithubMetadata struct {
 	Username     string `json:"username"`
 	Organization string `json:"org"`
 }
 
+//AuthGithub submits the given accessToken to the github auth endpoint, checking
+// it against configurations for Github organizations. If the accessToken
+// belongs to an authorized account, then the AuthOutput object is returned, and
+// this client's AuthToken is set to the returned token.
 func (v *Client) AuthGithub(accessToken string) (ret *AuthOutput, err error) {
 	ret = &AuthOutput{Metadata: AuthGithubMetadata{}}
 	err = v.doRequest(
@@ -40,10 +47,15 @@ func (v *Client) AuthGithub(accessToken string) (ret *AuthOutput, err error) {
 	return
 }
 
+//AuthLDAPMetadata is the metadata member set by AuthLDAP
 type AuthLDAPMetadata struct {
 	Username string `json:"username"`
 }
 
+//AuthLDAP submits the given username and password to the LDAP auth endpoint,
+//checking it against existing LDAP auth configurations. If auth is successful,
+//then the AuthOutput object is returned, and this client's AuthToken is set to
+//the returned token.
 func (v *Client) AuthLDAP(username, password string) (ret *AuthOutput, err error) {
 	ret = &AuthOutput{Metadata: AuthLDAPMetadata{}}
 	err = v.doRequest(
@@ -62,10 +74,14 @@ func (v *Client) AuthLDAP(username, password string) (ret *AuthOutput, err error
 	return
 }
 
+//AuthUserpassMetadata is the metadata member set by AuthUserpass
 type AuthUserpassMetadata struct {
 	Username string `json:"username"`
 }
 
+//AuthUserpass submits the given username and password to the userpass auth
+//endpoint. If a username with that password exists, then the AuthOutput object
+//is returned, and this client's AuthToken is set to the returned token.
 func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err error) {
 	ret = &AuthOutput{Metadata: AuthUserpassMetadata{}}
 	err = v.doRequest(

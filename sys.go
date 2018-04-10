@@ -1,5 +1,3 @@
-//Package vaultkv provides a client with functions that make API calls that a user of
-// Vault may commonly want.
 package vaultkv
 
 import (
@@ -47,6 +45,9 @@ func (v *Client) IsInitialized() (is bool, err error) {
 	return
 }
 
+//SealState is the return value from Unseal and SealStatus. Type is only
+//populated by SealStatus. ClusterName and ClusterID are only populated is
+//Vault is unsealed.
 type SealState struct {
 	//Type is the type of unseal key. It is not returned from Unseal
 	Type   string `json:"type,omitempty"`
@@ -59,9 +60,9 @@ type SealState struct {
 	Progress int    `json:"progress"`
 	Nonce    string `json:"nonce"`
 	Version  string `json:"version"`
-	//ClusterName is only returned from unseal
+	//ClusterName is only returned from an unsealed Vault.
 	ClusterName string `json:"cluster_name,omitempty"`
-	//ClusterID is only returned from unseal
+	//ClusterID is only returned from an unsealed Vault.
 	ClusterID string `json:"cluster_id,omitempty"`
 }
 
@@ -76,6 +77,8 @@ func (v *Client) SealStatus() (ret *SealState, err error) {
 	return
 }
 
+//InitConfig is the information passed to InitVault to configure the Vault.
+//Shares and Threshold are required.
 type InitConfig struct {
 	//Split the master key into this many shares
 	Shares int `json:"secret_shares"`
@@ -85,6 +88,8 @@ type InitConfig struct {
 	PGPKeys         []string `json:"pgp_keys"`
 }
 
+//InitVaultOutput is the return value of InitVault, and contains the generated
+//Keys and RootToken.
 type InitVaultOutput struct {
 	client     *Client
 	Keys       []string `json:"keys"`
@@ -92,6 +97,9 @@ type InitVaultOutput struct {
 	RootToken  string   `json:"root_token"`
 }
 
+//Unseal takes the keys in the InitVaultOutput object and sends each one to the
+//unseal endpoint. If any of the unseal calls are unsuccessful, an error is
+//returned.
 func (i *InitVaultOutput) Unseal() error {
 	for _, key := range i.Keys {
 		sealState, err := i.client.Unseal(key)
@@ -176,6 +184,13 @@ func (v *Client) ResetUnseal() (err error) {
 	return
 }
 
+//Health gives information about the current state of the Vault. If standbyok
+//is set to true, no error will be returned in the case that the targeted vault
+//is a standby node. If the targeted node is a standby and standbyok is false,
+//then ErrStandby will be returned. If the Vault is not yet initialized,
+//ErrUninitialized will be returned. If the Vault is initialized but sealed,
+//then ErrSealed will be returned. If none of these are the case, no error is
+//returned.
 func (v *Client) Health(standbyok bool) error {
 	//Don't call doRequest from Health because ParseError calls Health
 	query := url.Values{}

@@ -1,5 +1,3 @@
-//Package vaultkv provides a client with functions that make API calls that a user of
-// Vault may commonly want.
 package vaultkv
 
 import (

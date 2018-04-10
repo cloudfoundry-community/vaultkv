@@ -13,6 +13,9 @@ import (
 	"strings"
 )
 
+//Client provides functions that access and abstract the Vault API.
+// VaultURL must be set to the for the client to work. Only Vault versions
+// 0.6.5 and above are tested to work with this client.
 type Client struct {
 	AuthToken string
 	VaultURL  *url.URL

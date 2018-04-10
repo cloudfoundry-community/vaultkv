@@ -33,8 +33,11 @@ func (v *Client) doRequest(
 	input interface{},
 	output interface{}) error {
 
-	u := v.VaultURL
+	u := *v.VaultURL
 	u.Path = fmt.Sprintf("/v1/%s", strings.Trim(path, "/"))
+	if u.Port() == "" {
+		u.Host = fmt.Sprintf("%s:8200", u.Host)
+	}
 
 	var body io.Reader
 	if input != nil {

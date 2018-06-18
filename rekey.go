@@ -2,7 +2,7 @@ package vaultkv
 
 import (
 	"encoding/json"
-	"strings"
+	"regexp"
 )
 
 //Rekey represents a rekey operation currently in progress in the Vault. This
@@ -91,6 +91,9 @@ func (v *Client) rekeyCancel() error {
 	return v.doSysRequest("DELETE", "/sys/rekey/init", nil, nil)
 }
 
+//Before 0.10, it was "no rekey in progress". In 0.10, the word barrier was added
+var rekeyRegexp = regexp.MustCompile("no (barrier )?rekey in progress")
+
 //Submit gives keys to the rekey operation specified by this *Rekey object. Any
 //keys beyond the current required amount are ignored. If the Rekey is
 //successful after all keys have been sent, then done will be returned as true.
@@ -110,7 +113,7 @@ func (r *Rekey) Submit(keys ...string) (done bool, err error) {
 				//I really hate error string checking, but there's no good way that doesn't
 				//require another API call (which could, in turn, err, and leave us in a
 				//wrong state)
-				if strings.Contains(ebr.message, "no rekey in progress") {
+				if rekeyRegexp.MatchString(ebr.message) {
 					done = true
 				}
 			}

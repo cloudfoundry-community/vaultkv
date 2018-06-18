@@ -56,6 +56,7 @@ func init() {
 		"0.7.3",
 		"0.8.3",
 		"0.9.6",
+		"0.10.2",
 	}
 
 	if os.Getenv("VAULTKV_TEST_ONLY_LATEST") != "" {

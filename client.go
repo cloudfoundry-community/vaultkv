@@ -31,6 +31,8 @@ type vaultResponse struct {
 	//There's totally more to the response, but this is all I care about atm.
 }
 
+//URL encoded values can be given as a *url.Values as "input" when performing
+// a GET call
 func (v *Client) doRequest(
 	method, path string,
 	input interface{},

@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,6 +64,50 @@ func init() {
 	if os.Getenv("VAULTKV_TEST_ONLY_LATEST") != "" {
 		vaultVersions = vaultVersions[len(vaultVersions)-1:]
 	}
+}
+
+type semver struct {
+	major, minor, patch uint
+}
+
+func parseSemver(s string) semver {
+	sections := strings.Split(s, ".")
+	if len(sections) != 3 {
+		panic("You didn't give me a real semver")
+	}
+
+	sectionsInt := [3]uint64{}
+	for i, section := range sections {
+		sectionsInt[i], err = strconv.ParseUint(section, 10, 64)
+		if err != nil {
+			panic("Semver section was not parseable as a uint")
+		}
+	}
+
+	return semver{
+		major: uint(sectionsInt[0]),
+		minor: uint(sectionsInt[1]),
+		patch: uint(sectionsInt[2]),
+	}
+}
+
+func (s1 semver) LessThan(s2 semver) bool {
+	if s1.major < s2.major {
+		return true
+	}
+	if s1.major > s2.major {
+		return false
+	}
+
+	if s1.minor < s2.minor {
+		return true
+	}
+
+	if s1.minor > s2.minor {
+		return false
+	}
+
+	return s1.patch < s2.patch
 }
 
 //The current vault client used by each spec

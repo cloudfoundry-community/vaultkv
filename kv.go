@@ -50,21 +50,11 @@ func (v *Client) List(path string) ([]string, error) {
 //work. No assumptions are made about the mounting point of your Key/Value
 //backend.
 func (v *Client) Set(path string, values map[string]string) error {
-	err := v.doRequest("PUT", path, &values, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return v.doRequest("PUT", path, &values, nil)
 }
 
 //Delete attempts to delete the value at the specified path. No error is
 //returned if there is already no value at the given path.
 func (v *Client) Delete(path string) error {
-	err := v.doRequest("DELETE", path, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return v.doRequest("DELETE", path, nil, nil)
 }

@@ -347,6 +347,186 @@ var _ = Describe("Sys", func() {
 		})
 	})
 
+	Describe("Mount", func() {
+		var testBackendName string
+		var testBackendConfig vaultkv.Mount
+
+		JustBeforeEach(func() {
+			err = vault.EnableSecretsMount(
+				testBackendName,
+				testBackendConfig,
+			)
+		})
+
+		BeforeEach(func() {
+			testBackendName = "beepboop"
+			testBackendConfig = vaultkv.Mount{
+				Description: "a test mount",
+			}
+		})
+
+		Describe("Mounting a non-existent backend type", func() {
+			BeforeEach(func() {
+				testBackendConfig.Type = "dcgeduceohdursaoceh"
+			})
+
+			When("the vault is initialized", func() {
+				var initOut *vaultkv.InitVaultOutput
+				BeforeEach(func() {
+					initOut, err = vault.InitVault(vaultkv.InitConfig{
+						Shares:    1,
+						Threshold: 1,
+					})
+					When("the vault is unsealed", func() {
+						BeforeEach(func() {
+							sealState, err := vault.Unseal(initOut.Keys[0])
+							Expect(err).NotTo(HaveOccurred())
+							Expect(sealState).NotTo(BeNil())
+							Expect(sealState.Sealed).To(BeFalse())
+						})
+
+						It("should return ErrBadRequest", AssertErrorOfType(&vaultkv.ErrBadRequest{}))
+					})
+				})
+			})
+		})
+
+		Describe("Mounting a KVv1 backend", func() {
+			BeforeEach(func() {
+				testBackendConfig.Type = vaultkv.MountTypeKV
+				if parseSemver(currentVaultVersion).LessThan(semver{0, 8, 0}) {
+					testBackendConfig.Type = vaultkv.MountTypeGeneric
+				}
+			})
+
+			When("the vault is not initialized", func() {
+				It("should return ErrUninitialized", AssertErrorOfType(&vaultkv.ErrUninitialized{}))
+			})
+
+			When("the vault is initialized", func() {
+				var initOut *vaultkv.InitVaultOutput
+				BeforeEach(func() {
+					initOut, err = vault.InitVault(vaultkv.InitConfig{
+						Shares:    1,
+						Threshold: 1,
+					})
+				})
+
+				When("the vault is sealed", func() {
+					It("should return ErrSealed", AssertErrorOfType(&vaultkv.ErrSealed{}))
+				})
+
+				When("the vault is unsealed", func() {
+					BeforeEach(func() {
+						sealState, err := vault.Unseal(initOut.Keys[0])
+						Expect(err).NotTo(HaveOccurred())
+						Expect(sealState).NotTo(BeNil())
+						Expect(sealState.Sealed).To(BeFalse())
+					})
+
+					It("should not err", AssertNoError())
+
+					Describe("Listing the backends", func() {
+						var backendList map[string]vaultkv.Mount
+						JustBeforeEach(func() {
+							backendList, err = vault.ListMounts()
+						})
+
+						It("should not err", AssertNoError())
+						It("should have a backend with the correct name", func() {
+							_, ok := backendList[testBackendName]
+							Expect(ok).To(BeTrue(), "Expected the created backend to appear in the mount list")
+						})
+					})
+
+					Describe("Unmounting the backend", func() {
+						JustBeforeEach(func() {
+							err = vault.DisableSecretsMount(testBackendName)
+						})
+
+						It("should not err", AssertNoError())
+
+						Describe("Listing the backends", func() {
+							var backendList map[string]vaultkv.Mount
+							JustBeforeEach(func() {
+								backendList, err = vault.ListMounts()
+								Expect(err).NotTo(HaveOccurred())
+							})
+
+							Specify("the mount should be gone", func() {
+								_, ok := backendList[testBackendName]
+								Expect(ok).To(BeFalse(), "Expected the created backend to appear in the mount list")
+							})
+						})
+					})
+
+					Describe("Unmounting a backend that doesn't exist", func() {
+						JustBeforeEach(func() {
+							err = vault.DisableSecretsMount("hsaetdieogudsoearu")
+						})
+
+						It("should not err", AssertNoError())
+					})
+				})
+			})
+		})
+
+		Describe("Mounting a KVv2 backend", func() {
+			BeforeEach(func() {
+				if parseSemver(currentVaultVersion).LessThan(semver{0, 10, 0}) {
+					Skip("KV version 2 did not exist before 0.10.0")
+				}
+
+				testBackendConfig = vaultkv.Mount{
+					Type:        vaultkv.MountTypeKV,
+					Description: "A test v2 backend",
+					Options:     vaultkv.KVMountOptions{}.SetVersion(2),
+				}
+			})
+
+			When("the vault is initialized", func() {
+				var initOut *vaultkv.InitVaultOutput
+				BeforeEach(func() {
+					initOut, err = vault.InitVault(vaultkv.InitConfig{
+						Shares:    1,
+						Threshold: 1,
+					})
+				})
+
+				When("the vault is unsealed", func() {
+					BeforeEach(func() {
+						sealState, err := vault.Unseal(initOut.Keys[0])
+						Expect(err).NotTo(HaveOccurred())
+						Expect(sealState).NotTo(BeNil())
+						Expect(sealState.Sealed).To(BeFalse())
+					})
+
+					It("should not err", AssertNoError())
+
+					Describe("Listing the backends", func() {
+						var backendList map[string]vaultkv.Mount
+						JustBeforeEach(func() {
+							backendList, err = vault.ListMounts()
+						})
+
+						It("should not err", AssertNoError())
+						It("should have a backend which is properly configured", func() {
+							By("being in the returned list")
+							backend, ok := backendList[testBackendName]
+							Expect(ok).To(BeTrue(), "Expected the created backend to appear in the mount list")
+
+							By("having a options entry")
+							Expect(backend.Options).NotTo(BeNil())
+
+							By("being version 2")
+							Expect(vaultkv.KVMountOptions(backend.Options).GetVersion()).To(Equal(2))
+						})
+					})
+				})
+			})
+		})
+	})
+
 	Describe("Health", func() {
 		JustBeforeEach(func() {
 			err = vault.Health(true)

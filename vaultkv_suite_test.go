@@ -41,6 +41,7 @@ func TestVaultkv(t *testing.T) {
 	for i, version := range vaultVersions {
 		currentVaultVersion = version
 		RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
+		kvv2Tests()
 		if i != len(vaultVersions)-1 {
 			fmt.Println("")
 			fmt.Println("")
@@ -73,7 +74,7 @@ type semver struct {
 func parseSemver(s string) semver {
 	sections := strings.Split(s, ".")
 	if len(sections) != 3 {
-		panic("You didn't give me a real semver")
+		panic(fmt.Sprintf("You didn't give me a real semver: %s", s))
 	}
 
 	sectionsInt := [3]uint64{}
@@ -218,7 +219,7 @@ func downloadVault(version string) error {
 
 var _ = BeforeSuite(func() {
 	var err error
-	const uriStr = "https://127.0.0.1:8201"
+	const uriStr = "https://127.0.0.1:8202"
 	vaultURI, err = url.Parse(uriStr)
 	if err != nil {
 		panic(fmt.Sprintf("Could not parse Vault URI: %s", uriStr))

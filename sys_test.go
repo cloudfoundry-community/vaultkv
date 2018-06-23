@@ -24,16 +24,6 @@ var _ = Describe("Sys", func() {
 		}
 	}
 
-	Describe("SealStatus", func() {
-		JustBeforeEach(func() {
-			_, err = vault.SealStatus()
-		})
-
-		When("Vault is uninitialized", func() {
-			It("should return an ErrUninitialized", AssertErrorOfType(&vaultkv.ErrUninitialized{}))
-		})
-	})
-
 	Describe("Initialization", func() {
 		var output *vaultkv.InitVaultOutput
 		var input vaultkv.InitConfig
@@ -183,10 +173,6 @@ var _ = Describe("Sys", func() {
 				Expect(state.Progress).To(Equal(expected))
 			}
 		}
-
-		When("the vault is uninitialized", func() {
-			It("should return an ErrUninitialized", AssertErrorOfType(&vaultkv.ErrUninitialized{}))
-		})
 
 		When("the vault is initialized", func() {
 			var initOut *vaultkv.InitVaultOutput
@@ -399,10 +385,6 @@ var _ = Describe("Sys", func() {
 				}
 			})
 
-			When("the vault is not initialized", func() {
-				It("should return ErrUninitialized", AssertErrorOfType(&vaultkv.ErrUninitialized{}))
-			})
-
 			When("the vault is initialized", func() {
 				var initOut *vaultkv.InitVaultOutput
 				BeforeEach(func() {
@@ -410,10 +392,6 @@ var _ = Describe("Sys", func() {
 						Shares:    1,
 						Threshold: 1,
 					})
-				})
-
-				When("the vault is sealed", func() {
-					It("should return ErrSealed", AssertErrorOfType(&vaultkv.ErrSealed{}))
 				})
 
 				When("the vault is unsealed", func() {
@@ -532,10 +510,6 @@ var _ = Describe("Sys", func() {
 			err = vault.Health(true)
 		})
 
-		When("the vault is not initialized", func() {
-			It("should return ErrUninitialized", AssertErrorOfType(&vaultkv.ErrUninitialized{}))
-		})
-
 		When("the vault is initialized", func() {
 			var initOut *vaultkv.InitVaultOutput
 			BeforeEach(func() {
@@ -543,10 +517,6 @@ var _ = Describe("Sys", func() {
 					Shares:    1,
 					Threshold: 1,
 				})
-			})
-
-			When("the vault is sealed", func() {
-				It("should return ErrSealed", AssertErrorOfType(&vaultkv.ErrSealed{}))
 			})
 
 			When("the vault is unsealed", func() {

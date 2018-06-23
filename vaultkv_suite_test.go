@@ -41,7 +41,6 @@ func TestVaultkv(t *testing.T) {
 	for i, version := range vaultVersions {
 		currentVaultVersion = version
 		RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
-		kvv2Tests()
 		if i != len(vaultVersions)-1 {
 			fmt.Println("")
 			fmt.Println("")
@@ -446,4 +445,16 @@ func AssertErrorOfType(t interface{}) func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(BeAssignableToTypeOf(t))
 	}
+}
+
+func InitAndUnsealVault() {
+	var initOut *vaultkv.InitVaultOutput
+	initOut, err = vault.InitVault(vaultkv.InitConfig{
+		Shares:    1,
+		Threshold: 1,
+	})
+	AssertNoError()()
+
+	_, err = vault.Unseal(initOut.Keys[0])
+	AssertNoError()()
 }

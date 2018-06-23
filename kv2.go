@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (c *Client) IsKV2Mount(path string) (bool, error) {
+func (c *Client) IsKVv2Mount(path string) (bool, error) {
 	output := struct {
 		Type    string `json:"type"`
 		Options struct {
@@ -107,7 +107,7 @@ func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 		unmarshalInto.Data = &output
 	}
 
-	query := &url.Values{}
+	query := url.Values{}
 	if opts != nil {
 		query.Add("version", strconv.FormatUint(uint64(opts.Version), 10))
 	}

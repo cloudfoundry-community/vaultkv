@@ -8,6 +8,8 @@ package vaultkv
 // initialized for this endpoint to work. No assumptions are made about the
 // mounting point of your Key/Value backend.
 func (v *Client) Get(path string, output interface{}) error {
+	//TODO: Don't unmarshal into pointer - instead, validate that a pointer was
+	// given to this function
 	var unmarshalInto interface{}
 	if output != nil {
 		unmarshalInto = &vaultResponse{Data: &output}
@@ -50,6 +52,8 @@ func (v *Client) List(path string) ([]string, error) {
 //work. No assumptions are made about the mounting point of your Key/Value
 //backend.
 func (v *Client) Set(path string, values map[string]string) error {
+	//TODO: This function should be changed to accept a map[string]interface{}
+	//Then tests should be written for cases other than map[string]string
 	return v.doRequest("PUT", path, &values, nil)
 }
 

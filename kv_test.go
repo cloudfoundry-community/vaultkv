@@ -65,8 +65,13 @@ var _ = Describe("Kv", func() {
 				getAssertionPath = testPath
 			})
 
-			It("should return ErrBadRequest", AssertErrorOfType(&vaultkv.ErrBadRequest{}))
-			Specify("Get should find no key at this path", AssertExists(false))
+			It("should err properly", func() {
+				By("returning ErrBadRequest")
+				AssertErrorOfType(&vaultkv.ErrBadRequest{})()
+
+				By("having Get find nothing at this path after the call")
+				AssertExists(false)()
+			})
 		})
 
 		When("the path is doesn't correspond to a mounted backend", func() {
@@ -74,34 +79,63 @@ var _ = Describe("Kv", func() {
 				testPath = "notabackend/foo"
 			})
 
-			It("should return ErrNotFound", AssertErrorOfType(&vaultkv.ErrNotFound{}))
-			Specify("Get should find no key at this path", AssertExists(false))
+			It("should err properly", func() {
+				By("returning ErrNotFound")
+				AssertErrorOfType(&vaultkv.ErrNotFound{})()
+
+				By("having Get find nothing at this path after the call")
+				AssertExists(false)()
+			})
 		})
 
 		When("the path has a leading slash", func() {
 			BeforeEach(func() {
 				testPath = "/secret/foo"
-				getAssertionPath = strings.TrimPrefix(testPath, "/")
 			})
 
-			It("should not return an error", AssertNoError())
-			Specify("Get should find the key at the path without a slash",
-				AssertExists(true))
-			Specify("Get should find the inserted value at the path without a slash",
-				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"}))
+			It("should get inserted properly", func() {
+				By("not erroring")
+				AssertNoError()()
+
+				By("having get find the key at the path without a slash")
+				getAssertionPath = strings.TrimPrefix(testPath, "/")
+				AssertExists(true)()
+
+				By("having get find the key at the path without a slash")
+				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"})()
+
+				By("having get find the key at the path with a slash")
+				getAssertionPath = testPath
+				AssertExists(true)()
+
+				By("having get find the key at the path with a slash")
+				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"})()
+			})
 		})
 
 		When("the path has a trailing slash", func() {
 			BeforeEach(func() {
 				testPath = "secret/foo/"
-				getAssertionPath = strings.TrimSuffix(testPath, "/")
 			})
 
-			It("should not return an error", AssertNoError())
-			Specify("Get should find the key at the path without a slash",
-				AssertExists(true))
-			Specify("Get should find the inserted value at the path without a slash",
-				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"}))
+			It("should get inserted properly", func() {
+				By("not erroring")
+				AssertNoError()()
+
+				By("having get find the key at the path without a slash")
+				getAssertionPath = strings.TrimSuffix(testPath, "/")
+				AssertExists(true)()
+
+				By("having get find the key at the path without a slash")
+				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"})()
+
+				By("having get find the key at the path with a slash")
+				getAssertionPath = testPath
+				AssertExists(true)()
+
+				By("having get find the key at the path with a slash")
+				AssertGetEquals(map[string]string{"foo": "bar", "beep": "boop"})()
+			})
 		})
 
 		When("setting an already set key", func() {
@@ -117,9 +151,13 @@ var _ = Describe("Kv", func() {
 				err = vault.Set(testPath, secondTestValue)
 			})
 
-			It("should not return an error", AssertNoError())
-			Specify("Get should find the value that was added second",
-				AssertGetEquals(map[string]string{"thisisanotherkey": "thisisanothervalue"}))
+			It("should overwrite the value", func() {
+				By("not erroring")
+				AssertNoError()()
+
+				By("having Get find the value that was added second")
+				AssertGetEquals(map[string]string{"thisisanotherkey": "thisisanothervalue"})
+			})
 		})
 
 		Describe("Get", func() {
@@ -144,8 +182,13 @@ var _ = Describe("Kv", func() {
 					getTestPath = testPath
 				})
 
-				It("should not return an error", AssertNoError())
-				It("should return the same value as what was inserted", AssertGetEqualsSet())
+				It("should retrieve the key", func() {
+					By("not erroring")
+					AssertNoError()()
+
+					By("returning the value that was inserted")
+					AssertGetEqualsSet()()
+				})
 			})
 
 			When("the key doesn't exist", func() {
@@ -169,8 +212,13 @@ var _ = Describe("Kv", func() {
 					getAssertionPath = testPath
 				})
 
-				It("should not return an error", AssertNoError())
-				Specify("Get should not find the key", AssertExists(false))
+				It("should delete the key", func() {
+					By("not erroring")
+					AssertNoError()()
+
+					By("get not finding the deleted key")
+					AssertExists(false)()
+				})
 			})
 
 			When("the key doesn't exist", func() {
@@ -221,8 +269,13 @@ var _ = Describe("Kv", func() {
 						listTestPath = "secret"
 					})
 
-					It("should not return an error", AssertNoError())
-					It("should return the correct list of paths", AssertListEquals([]string{"foo", "foo/"}))
+					It("should return the correct paths", func() {
+						By("not erroring")
+						AssertNoError()
+
+						By("returning the correct list of paths")
+						AssertListEquals([]string{"foo", "foo/"})
+					})
 				})
 
 				Context("on the dir of the nested key", func() {
@@ -230,8 +283,13 @@ var _ = Describe("Kv", func() {
 						listTestPath = "secret/foo"
 					})
 
-					It("should not return an error", AssertNoError())
-					It("should return the correct list of paths", AssertListEquals([]string{"bar"}))
+					It("should return the correct paths", func() {
+						By("not erroring")
+						AssertNoError()
+
+						By("returning the correct list of paths")
+						AssertListEquals([]string{"bar"})
+					})
 				})
 
 				When("the path doesn't exist", func() {
@@ -259,8 +317,11 @@ var _ = Describe("Kv", func() {
 						getTestPath = secondTestPath
 					})
 
-					It("should not return an error", AssertNoError())
-					It("should return the correct value", func() {
+					It("should retrieve the value", func() {
+						By("not erroring")
+						AssertNoError()()
+
+						By("returning the value that was inserted")
 						Expect(getOutputValue).To(Equal(secondTestValue))
 					})
 				})
@@ -277,8 +338,13 @@ var _ = Describe("Kv", func() {
 						getAssertionPath = deleteTestPath
 					})
 
-					It("should not return an error", AssertNoError())
-					Specify("Get should not find the key", AssertExists(false))
+					It("should delete the key", func() {
+						By("not erroring")
+						AssertNoError()()
+
+						By("having Get be unable to find the key")
+						AssertExists(false)()
+					})
 				})
 			})
 		})

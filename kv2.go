@@ -3,6 +3,7 @@ package vaultkv
 import (
 	"fmt"
 	"net/url"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -96,15 +97,24 @@ type V2GetOpts struct {
 }
 
 func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V2Version, err error) {
-	unmarshalInto := struct {
-		Metadata v2VersionAPI `json:"metadata"`
-		Data     interface{}  `json:"data"`
-	}{
-		Metadata: v2VersionAPI{},
+	if output != nil &&
+		reflect.ValueOf(output).Kind() != reflect.Ptr {
+		err = fmt.Errorf("V2Get output must be a pointer")
+		return
 	}
 
-	if output != nil {
-		unmarshalInto.Data = &output
+	type outputData struct {
+		Metadata v2VersionAPI `json:"metadata"`
+		Data     interface{}  `json:"data"`
+	}
+
+	unmarshalInto := &struct {
+		Data outputData `json:"data"`
+	}{
+		Data: outputData{
+			Metadata: v2VersionAPI{},
+			Data:     output,
+		},
 	}
 
 	query := url.Values{}
@@ -119,7 +129,7 @@ func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 		return
 	}
 
-	meta = unmarshalInto.Metadata.Parse()
+	meta = unmarshalInto.Data.Metadata.Parse()
 	return
 }
 
@@ -139,13 +149,13 @@ func (s *V2SetOpts) SetCAS(i uint) *V2SetOpts {
 	return s
 }
 
-func (v *Client) V2Set(path string, values map[string]string, opts *V2SetOpts) (meta V2Version, err error) {
+func (v *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V2Version, err error) {
 	input := struct {
-		Options *V2SetOpts        `json:"options,omitempty"`
-		Data    map[string]string `json:"data"`
+		Options *V2SetOpts  `json:"options,omitempty"`
+		Data    interface{} `json:"data"`
 	}{
 		Options: opts,
-		Data:    values,
+		Data:    &values,
 	}
 
 	output := struct {
@@ -177,7 +187,7 @@ func (v *Client) V2Delete(path string, opts *V2DeleteOpts) error {
 
 	if opts != nil && len(opts.Versions) > 0 {
 		method = "POST"
-		path = fmt.Sprintf("%s/delete%s")
+		path = fmt.Sprintf("%s/delete%s", mount, subpath)
 	} else {
 		opts = nil
 	}
@@ -231,6 +241,18 @@ type v2MetadataAPI struct {
 	} `json:"data"`
 }
 
+//Version returns the version with the given number in the metadata as a
+//V2Version object , if present. If no version with that number is present, an
+//error is returned.
+func (v V2Metadata) Version(number uint) (version V2Version, err error) {
+	if number > uint(len(v.Versions)) || number < 1 {
+		err = fmt.Errorf("That version does not exist in the metadata")
+		return
+	}
+	version = v.Versions[number-1]
+	return
+}
+
 func (m v2MetadataAPI) Parse() V2Metadata {
 	ret := V2Metadata{
 		CurrentVersion: m.Data.CurrentVersion,
@@ -259,7 +281,7 @@ func (v *Client) V2GetMetadata(path string) (meta V2Metadata, err error) {
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
 	output := v2MetadataAPI{}
-	err = v.doRequest("DELETE", path, nil, &output)
+	err = v.doRequest("GET", path, nil, &output)
 	if err != nil {
 		return
 	}

@@ -165,8 +165,8 @@ func (o KVMountOptions) GetVersion() int {
 	return ret
 }
 
-//SetVersion returns a KVMountOptions object with the given version
-func (o KVMountOptions) SetVersion(version int) KVMountOptions {
+//WithVersion returns a new KVMountOptions object with the given version
+func (o KVMountOptions) WithVersion(version int) KVMountOptions {
 	if o == nil {
 		o = make(map[string]interface{}, 1)
 	}

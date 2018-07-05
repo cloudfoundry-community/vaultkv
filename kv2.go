@@ -152,16 +152,17 @@ type V2SetOpts struct {
 	CAS *uint `json:"cas,omitempty"`
 }
 
-//SetCAS sets the check-and-set option for a write. If i is zero, then the value
-//will only be written if the key does not exist. If i is non-zero, then the
-//value will only be written if the currently existing version matches i. Not
-//calling CAS will result in no restriction on writing. If the mount is set up
-//for requiring CAS, then not setting CAS with this function a valid number will
-//result in a failure when attempting to write.
-func (s *V2SetOpts) SetCAS(i uint) *V2SetOpts {
+//WithCAS returns a pointer to a new V2SetOpts with the CAS value set to the
+//given value. If i is zero, then the value will only be written if the key
+//does not exist. If i is non-zero, then the value will only be written if the
+//currently existing version matches i. Not calling CAS will result in no
+//restriction on writing. If the mount is set up for requiring CAS, then not
+//setting CAS with this function a valid number will result in a failure when
+//attempting to write.
+func (s V2SetOpts) WithCAS(i uint) *V2SetOpts {
 	s.CAS = new(uint)
 	*s.CAS = i
-	return s
+	return &s
 }
 
 //V2Set uses encoding/json.Marshal on the object given in values to encode

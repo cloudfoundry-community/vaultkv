@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/cloudfoundry-community/vaultkv"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 )
 
@@ -38,32 +40,22 @@ func TestVaultkv(t *testing.T) {
 
 	AfterEach(StopVault)
 	RegisterFailHandler(Fail)
-	for i, version := range vaultVersions {
-		currentVaultVersion = version
-		RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
-		if i != len(vaultVersions)-1 {
-			fmt.Println("")
-			fmt.Println("")
-			fmt.Println("========================================================")
-			fmt.Println(`|/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\|`)
-			fmt.Println("========================================================")
-			fmt.Println("")
-		}
+
+	if currentVaultVersion == "" {
+		panic("Must specify vault version")
 	}
+
+	RunSpecs(t, fmt.Sprintf("Vaultkv - Vault Version %s", currentVaultVersion))
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("========================================================")
+	fmt.Println(`|/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\|`)
+	fmt.Println("========================================================")
+	fmt.Println("")
 }
 
 func init() {
-	vaultVersions = []string{
-		"0.6.5",
-		"0.7.3",
-		"0.8.3",
-		"0.9.6",
-		"0.10.2",
-	}
-
-	if os.Getenv("VAULTKV_TEST_ONLY_LATEST") != "" {
-		vaultVersions = vaultVersions[len(vaultVersions)-1:]
-	}
+	flag.StringVar(&currentVaultVersion, "v", "", "version specifies the vault version to test")
 }
 
 type semver struct {
@@ -134,7 +126,46 @@ func buildVaultPath(version string) string {
 	return fmt.Sprintf("/tmp/testvaults/vault-%s-%s", runtime.GOOS, version)
 }
 
+func waitForVersion(version string) error {
+	const existenceThreshold = 5 //Seconds
+
+	var hasntExistedFor = 0
+	var lastSize int64 = 0
+	const consecutiveSameSizeThreshold = 3
+	var consecutiveSameSizeCount = 0
+	for range time.Tick(1 * time.Second) {
+		info, err := os.Stat(buildVaultPath(version))
+		if err != nil {
+			if os.IsNotExist(err) {
+				hasntExistedFor++
+				if hasntExistedFor >= existenceThreshold {
+					return fmt.Errorf("Timed out waiting for vault download to begin")
+				}
+				continue
+			}
+
+			return err
+		}
+
+		if lastSize == info.Size() {
+			consecutiveSameSizeCount++
+			if consecutiveSameSizeCount >= consecutiveSameSizeThreshold {
+				break
+			}
+		} else {
+			consecutiveSameSizeCount = 0
+		}
+	}
+
+	return nil
+}
+
 func downloadVault(version string) error {
+	if config.GinkgoConfig.ParallelNode != 1 {
+		err = waitForVersion(version)
+		return err
+	}
+
 	fmt.Printf("Downloading Vault version %s... ", version)
 	_, err := os.Stat(filepath.Dir(buildVaultPath(version)))
 	if err != nil {
@@ -218,7 +249,7 @@ func downloadVault(version string) error {
 
 var _ = BeforeSuite(func() {
 	var err error
-	const uriStr = "https://127.0.0.1:8202"
+	var uriStr = fmt.Sprintf("https://127.0.0.1:%d", 8202+config.GinkgoConfig.ParallelNode)
 	vaultURI, err = url.Parse(uriStr)
 	if err != nil {
 		panic(fmt.Sprintf("Could not parse Vault URI: %s", uriStr))

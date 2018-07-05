@@ -7,24 +7,22 @@ import (
 	"github.com/cloudfoundry-community/vaultkv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	//. "github.com/cloudfoundry-community/vaultkv"
 )
 
 var _ = Describe("KVv2", func() {
 	const testMountName = "beep"
-	JustBeforeEach(func() {
+	BeforeEach(func() {
 		if parseSemver(currentVaultVersion).LessThan(semver{0, 10, 0}) {
 			Skip("This version of Vault does not support KVv2")
 		} else {
 			InitAndUnsealVault()
 			err = vault.EnableSecretsMount(testMountName, vaultkv.Mount{
 				Type:    vaultkv.MountTypeKV,
-				Options: vaultkv.KVMountOptions{}.SetVersion(2),
+				Options: vaultkv.KVMountOptions{}.WithVersion(2),
 			})
 
 			AssertNoError()()
 		}
-
 	})
 
 	Describe("V2Set", func() {
@@ -238,22 +236,94 @@ var _ = Describe("KVv2", func() {
 				})
 
 				Context("Specifying a version to delete", func() {
-					BeforeEach(func() {
-						testDeleteOptions = &vaultkv.V2DeleteOpts{
-							Versions: []uint{1},
-						}
+					When("the version exists", func() {
+						BeforeEach(func() {
+							testDeleteOptions = &vaultkv.V2DeleteOpts{
+								Versions: []uint{1},
+							}
+						})
+
+						It("should delete the specified version", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("V2Get being unable to find it")
+							_, err = vault.V2Get(testSetPath, nil, nil)
+							AssertErrorOfType(&vaultkv.ErrNotFound{})()
+						})
+
+						Context("and then deleting it again", func() {
+							JustBeforeEach(func() {
+								err = vault.V2Delete(testSetPath, testDeleteOptions)
+							})
+
+							It("should not err", AssertNoError())
+						})
 					})
 
-					It("should delete the specified version", func() {
+					When("the version does not exist", func() {
+						BeforeEach(func() {
+							testDeleteOptions = &vaultkv.V2DeleteOpts{
+								Versions: []uint{12},
+							}
+						})
+
+						It("should not err", AssertNoError())
+					})
+				})
+			})
+
+			Describe("V2Destroy", func() {
+				When("the version exists and it is the only version", func() {
+					JustBeforeEach(func() {
+						err = vault.V2Destroy(testSetPath, []uint{1})
+					})
+
+					It("should delete the metadata", func() {
 						By("not erroring")
 						AssertNoError()()
 
-						By("V2Get being unable to find it")
+						By("V2Get being unable to find the key")
 						_, err = vault.V2Get(testSetPath, nil, nil)
-						AssertErrorOfType(&vaultkv.ErrNotFound{})()
+						AssertErrorOfType(&vaultkv.ErrNotFound{})
+
+						By("V2GetMetadata being unable to find the key")
+						_, err = vault.V2GetMetadata(testSetPath)
+						AssertErrorOfType(&vaultkv.ErrNotFound{})
 					})
 				})
 
+				When("the version does not exist", func() {
+					JustBeforeEach(func() {
+						err = vault.V2Destroy(testSetPath, []uint{12})
+					})
+
+					It("should not delete anything", func() {
+						By("not erroring")
+						AssertNoError()()
+
+						By("V2Get being able to find the key")
+						_, err = vault.V2Get(testSetPath, nil, nil)
+						AssertNoError()()
+
+						By("V2GetMetadata being able to find the key")
+						var meta vaultkv.V2Metadata
+						meta, err = vault.V2GetMetadata(testSetPath)
+						AssertNoError()()
+
+						By("V2GetMetadata reporting that version 1 still exists")
+						_, err = meta.Version(1)
+						AssertNoError()()
+					})
+				})
+
+				When("the path does not exist", func() {
+					JustBeforeEach(func() {
+						err = vault.V2Destroy(testSetPath+"abcd", []uint{12})
+					})
+
+					It("should not err", AssertNoError())
+				})
 			})
 
 			Describe("V2DestroyMetadata", func() {
@@ -273,6 +343,113 @@ var _ = Describe("KVv2", func() {
 					_, err = vault.V2GetMetadata(testSetPath)
 					AssertErrorOfType(&vaultkv.ErrNotFound{})
 				})
+			})
+
+			Context("When there are two versions written", func() {
+				var testSet2Values map[string]interface{}
+				BeforeEach(func() {
+					testSet2Values = map[string]interface{}{"wee": "woo"}
+				})
+				JustBeforeEach(func() {
+					testVersionOutput, err = vault.V2Set(testSetPath, testSet2Values, nil)
+					AssertNoError()()
+				})
+
+				Describe("V2Get", func() {
+					var testGet2Options *vaultkv.V2GetOpts
+					var testGet2Output map[string]interface{}
+					var testGet2Version vaultkv.V2Version
+					JustBeforeEach(func() {
+						testGet2Output = map[string]interface{}{}
+						testGet2Version, err = vault.V2Get(testSetPath, &testGet2Output, testGet2Options)
+					})
+
+					When("there are no options specified", func() {
+						BeforeEach(func() {
+							testGet2Options = nil
+						})
+
+						It("should get the latest version", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("having the retrieved value match what was put in second")
+							Expect(testGet2Output).To(BeEquivalentTo(testSet2Values))
+
+							By("having the returned version be 2")
+							Expect(testGet2Version.Version).To(BeEquivalentTo(2))
+						})
+					})
+
+					When("the version specified is `0'", func() {
+						BeforeEach(func() {
+							testGet2Options = &vaultkv.V2GetOpts{Version: 0}
+						})
+
+						It("should get the latest version", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("having the retrieved value match what was put in second")
+							Expect(testGet2Output).To(BeEquivalentTo(testSet2Values))
+
+							By("having the returned version be 2")
+							Expect(testGet2Version.Version).To(BeEquivalentTo(2))
+						})
+					})
+
+					When("the version specified is `1'", func() {
+						BeforeEach(func() {
+							testGet2Options = &vaultkv.V2GetOpts{Version: 1}
+						})
+						It("should get version 1", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("having the retrieved value match what was put in first")
+							Expect(testGet2Output).To(BeEquivalentTo(testSetValues))
+
+							By("having the returned version be 1")
+							Expect(testGet2Version.Version).To(BeEquivalentTo(1))
+						})
+					})
+
+					When("the version specified is `12'", func() {
+						BeforeEach(func() {
+							testGet2Options = &vaultkv.V2GetOpts{Version: 12}
+						})
+						It("should err properly", func() {
+							By("return ErrNotFound")
+							AssertErrorOfType(&vaultkv.ErrNotFound{})
+						})
+					})
+				})
+			})
+		})
+
+		When("Check and Set is set to 0", func() {
+			BeforeEach(func() {
+				testSetOptions = vaultkv.V2SetOpts{}.WithCAS(0)
+			})
+			Context("and the key does not yet exist", func() {
+				It("should write the values", func() {
+					By("not erroring")
+					AssertNoError()()
+
+					By("returning proper metadata")
+					Expect(testVersionOutput.Version).To(BeEquivalentTo(1))
+				})
+			})
+
+			Context("and the key already exists", func() {
+				BeforeEach(func() {
+					var meta vaultkv.V2Version
+					meta, err = vault.V2Set(testSetPath, testSetValues, nil)
+					AssertNoError()()
+					Expect(meta.Version).To(BeEquivalentTo(1))
+				})
+
+				It("should return ErrBadRequest", AssertErrorOfType(&vaultkv.ErrBadRequest{}))
 			})
 		})
 	})

@@ -548,7 +548,7 @@ var _ = Describe("Sys", func() {
 				testBackendConfig = vaultkv.Mount{
 					Type:        vaultkv.MountTypeKV,
 					Description: "A test v2 backend",
-					Options:     vaultkv.KVMountOptions{}.SetVersion(2),
+					Options:     vaultkv.KVMountOptions{}.WithVersion(2),
 				}
 			})
 

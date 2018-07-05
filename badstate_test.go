@@ -6,7 +6,6 @@ import (
 	"github.com/cloudfoundry-community/vaultkv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	//. "github.com/cloudfoundry-community/vaultkv"
 )
 
 var _ = When("the vault is uninitialized", func() {
@@ -148,5 +147,3 @@ var _ = When("the vault is initialized", func() {
 		})
 	})
 })
-
-//TODO: Test when the auth token is wrong or unspecified

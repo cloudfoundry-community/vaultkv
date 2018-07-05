@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+//IsKVv2Mount returns true if the mount is a version 2 KV mount and false
+//otherwise. This will also simply return false if no mount exists at the given
+//mount point or if the Vault is too old to have the API endpoint to look for
+//the mount. If a different API error occurs, it will be propagated out.
 func (c *Client) IsKVv2Mount(path string) (bool, error) {
 	output := struct {
 		Type    string `json:"type"`

@@ -90,13 +90,19 @@ func (v v2VersionAPI) Parse() V2Version {
 	return ret
 }
 
+//V2GetOpts are options to specify in a V2Get request.
 type V2GetOpts struct {
 	// Version is the version of the resource to retrieve. Setting this to zero (or
 	// not setting it at all) will retrieve the latest version
 	Version uint
 }
 
-func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V2Version, err error) {
+//V2Get will get a secret from the given path in a KV version 2 secrets backend.
+//If the secret is at "/bar" in the backend mounted at "foo", then the path
+//should be "foo/bar". The response will be decoded into the item pointed to
+//by output using encoding/json.Unmarshal semantics. The version to retrieve
+//can be selected by setting Version in the V2GetOpts struct at opts.
+func (c *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V2Version, err error) {
 	if output != nil &&
 		reflect.ValueOf(output).Kind() != reflect.Ptr {
 		err = fmt.Errorf("V2Get output must be a pointer")
@@ -124,7 +130,7 @@ func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
-	err = v.doRequest("GET", path, query, unmarshalInto)
+	err = c.doRequest("GET", path, query, unmarshalInto)
 	if err != nil {
 		return
 	}
@@ -133,7 +139,12 @@ func (v *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 	return
 }
 
+//V2SetOpts are options that can be specified to a V2Set call
 type V2SetOpts struct {
+	//CAS provides a check-and-set version number. If this is set to zero, then
+	// the value will only be written if the key does not yet exist. If the CAS
+	//number is non-zero, then this will only be written if the current version
+	//for your this secret matches the CAS value.
 	CAS *uint `json:"cas,omitempty"`
 }
 
@@ -141,7 +152,7 @@ type V2SetOpts struct {
 //will only be written if the key does not exist. If i is non-zero, then the
 //value will only be written if the currently existing version matches i. Not
 //calling CAS will result in no restriction on writing. If the mount is set up
-//for requiring CAS, then setting CAS with this function a valid number will
+//for requiring CAS, then not setting CAS with this function a valid number will
 //result in a failure when attempting to write.
 func (s *V2SetOpts) SetCAS(i uint) *V2SetOpts {
 	s.CAS = new(uint)
@@ -149,7 +160,11 @@ func (s *V2SetOpts) SetCAS(i uint) *V2SetOpts {
 	return s
 }
 
-func (v *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V2Version, err error) {
+//V2Set uses encoding/json.Marshal on the object given in values to encode
+// the secret as JSON, and writes it to the path given. Populate ops to use the
+// check-and-set functionality. Returns the metadata about the written secret
+// if the write is successful.
+func (c *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V2Version, err error) {
 	input := struct {
 		Options *V2SetOpts  `json:"options,omitempty"`
 		Data    interface{} `json:"data"`
@@ -167,7 +182,7 @@ func (v *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
 
-	err = v.doRequest("PUT", path, &input, &output)
+	err = c.doRequest("PUT", path, &input, &output)
 	if err != nil {
 		return
 	}
@@ -176,11 +191,16 @@ func (v *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V
 	return
 }
 
+//V2DeleteOpts are options that can be provided to a V2Delete call.
 type V2DeleteOpts struct {
 	Versions []uint `json:"versions"`
 }
 
-func (v *Client) V2Delete(path string, opts *V2DeleteOpts) error {
+//V2Delete marks a secret version at the given path as deleted. If opts is not
+// provided or the Versions slice therein is left nil, the latest version is
+// deleted. Otherwise, the specified versions are deleted. Note that the deleted
+// data from this call is recoverable from a call to V2Undelete.
+func (c *Client) V2Delete(path string, opts *V2DeleteOpts) error {
 	method := "DELETE"
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
@@ -192,35 +212,40 @@ func (v *Client) V2Delete(path string, opts *V2DeleteOpts) error {
 		opts = nil
 	}
 
-	return v.doRequest(method, path, opts, nil)
+	return c.doRequest(method, path, opts, nil)
 }
 
-func (v *Client) V2Undelete(path string, versions []uint) error {
+//V2Undelete marks the specified versions at the specified paths as not deleted.
+func (c *Client) V2Undelete(path string, versions []uint) error {
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/undelete%s", mount, subpath)
-	return v.doRequest("POST", path, struct {
+	return c.doRequest("POST", path, struct {
 		Versions []uint `json:"versions"`
 	}{
 		Versions: versions,
 	}, nil)
 }
 
-func (v *Client) V2Destroy(path string, versions []uint) error {
+//V2Destroy permanently deletes the specified versions at the specified path.
+func (c *Client) V2Destroy(path string, versions []uint) error {
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/destroy%s", mount, subpath)
-	return v.doRequest("POST", path, struct {
+	return c.doRequest("POST", path, struct {
 		Versions []uint `json:"versions"`
 	}{
 		Versions: versions,
 	}, nil)
 }
 
-func (v *Client) V2DestroyMetadata(path string) error {
+//V2DestroyMetadata permanently destroys all secret versions and all metadata
+// associated with the secret at the specified path.
+func (c *Client) V2DestroyMetadata(path string) error {
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
-	return v.doRequest("DELETE", path, nil, nil)
+	return c.doRequest("DELETE", path, nil, nil)
 }
 
+//V2Metadata is the metadata associated with a secret
 type V2Metadata struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -244,12 +269,12 @@ type v2MetadataAPI struct {
 //Version returns the version with the given number in the metadata as a
 //V2Version object , if present. If no version with that number is present, an
 //error is returned.
-func (v V2Metadata) Version(number uint) (version V2Version, err error) {
-	if number > uint(len(v.Versions)) || number < 1 {
+func (m V2Metadata) Version(number uint) (version V2Version, err error) {
+	if number > uint(len(m.Versions)) || number < 1 {
 		err = fmt.Errorf("That version does not exist in the metadata")
 		return
 	}
-	version = v.Versions[number-1]
+	version = m.Versions[number-1]
 	return
 }
 
@@ -277,11 +302,13 @@ func (m v2MetadataAPI) Parse() V2Metadata {
 	return ret
 }
 
-func (v *Client) V2GetMetadata(path string) (meta V2Metadata, err error) {
+//V2GetMetadata gets the metadata associatedw with the secret at the specified
+// path.
+func (c *Client) V2GetMetadata(path string) (meta V2Metadata, err error) {
 	mount, subpath := splitMount(path)
 	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
 	output := v2MetadataAPI{}
-	err = v.doRequest("GET", path, nil, &output)
+	err = c.doRequest("GET", path, nil, &output)
 	if err != nil {
 		return
 	}

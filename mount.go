@@ -15,6 +15,7 @@ const (
 	MountTypeKV = "kv"
 )
 
+//Mount represents a backend mounted at a point in Vault.
 type Mount struct {
 	//The type of mount at this point
 	Type        string
@@ -23,6 +24,7 @@ type Mount struct {
 	Options     map[string]interface{}
 }
 
+//MountConfig specifies configuration options given when initializing a backend.
 type MountConfig struct {
 	DefaultLeaseTTL time.Duration
 	MaxLeaseTTL     time.Duration
@@ -142,8 +144,12 @@ func getMountList(candidate interface{}) map[string]mountListAPI {
 	return tmpOutput
 }
 
+//KVMountOptions is a map[string]interface{} that can be given as the options
+//when mounting a backend. It has Version manipulation functions to make life
+//easier.
 type KVMountOptions map[string]interface{}
 
+//GetVersion retruns the version held in the KVMountOptions object
 func (o KVMountOptions) GetVersion() int {
 	if o == nil {
 		return 1
@@ -159,6 +165,7 @@ func (o KVMountOptions) GetVersion() int {
 	return ret
 }
 
+//SetVersion returns a KVMountOptions object with the given version
 func (o KVMountOptions) SetVersion(version int) KVMountOptions {
 	if o == nil {
 		o = make(map[string]interface{}, 1)
@@ -168,6 +175,8 @@ func (o KVMountOptions) SetVersion(version int) KVMountOptions {
 	return o
 }
 
+//EnableSecretsMount mounts a secrets backend at the given path, configured with
+// the given Mount configuration.
 func (c *Client) EnableSecretsMount(path string, config Mount) error {
 	input := struct {
 		Type        string                `json:"type"`
@@ -184,6 +193,7 @@ func (c *Client) EnableSecretsMount(path string, config Mount) error {
 	return c.doRequest("POST", fmt.Sprintf("/sys/mounts/%s", path), &input, nil)
 }
 
+//DisableSecretsMount deletes the mount at the given path.
 func (c *Client) DisableSecretsMount(path string) error {
 	return c.doRequest("DELETE", fmt.Sprintf("/sys/mounts/%s", path), nil, nil)
 }

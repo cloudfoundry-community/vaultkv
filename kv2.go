@@ -252,8 +252,11 @@ func (c *Client) V2DestroyMetadata(path string) error {
 
 //V2Metadata is the metadata associated with a secret
 type V2Metadata struct {
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	//CurrentVersion is the highest version number that has been created for this
+	//secret. Deleteing or destroying the highest version does not change this
+	//number.
 	CurrentVersion uint
 	OldestVersion  uint
 	MaxVersions    uint

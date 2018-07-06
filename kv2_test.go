@@ -424,6 +424,139 @@ var _ = Describe("KVv2", func() {
 						})
 					})
 				})
+
+				Describe("V2Delete", func() {
+					var testDeleteOpts *vaultkv.V2DeleteOpts
+					JustBeforeEach(func() {
+						vault.V2Delete(testSetPath, testDeleteOpts)
+					})
+
+					AfterEach(func() {
+						testDeleteOpts = nil
+					})
+
+					Context("the first version", func() {
+						BeforeEach(func() {
+							testDeleteOpts = &vaultkv.V2DeleteOpts{
+								Versions: []uint{1},
+							}
+						})
+
+						It("should delete the first version", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("V2GetMetadata returning that the first version has a deletion time")
+							var meta vaultkv.V2Metadata
+							meta, err = vault.V2GetMetadata(testSetPath)
+							AssertNoError()()
+
+							var v1 vaultkv.V2Version
+							v1, err = meta.Version(1)
+							AssertNoError()()
+
+							Expect(v1.Version).To(BeEquivalentTo(1))
+							Expect(v1.DeletedAt).NotTo(BeNil())
+
+							By("V2GetMetadata returning that the second version is not deleted")
+							var v2 vaultkv.V2Version
+							v2, err = meta.Version(2)
+							AssertNoError()()
+
+							Expect(v2.Version).To(BeEquivalentTo(2))
+							Expect(v2.DeletedAt).To(BeNil())
+						})
+					})
+
+					Context("the second version", func() {
+						BeforeEach(func() {
+							testDeleteOpts = &vaultkv.V2DeleteOpts{
+								Versions: []uint{1},
+							}
+						})
+
+						Specify("CurrentVersion should be 2", func() {
+							var meta vaultkv.V2Metadata
+							meta, err = vault.V2GetMetadata(testSetPath)
+							AssertNoError()()
+							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
+						})
+					})
+				})
+
+				Describe("V2Undelete", func() {
+					var versionsToUndelete []uint
+					JustBeforeEach(func() {
+						err = vault.V2Undelete(testSetPath, versionsToUndelete)
+					})
+
+					Context("When the version is not deleted", func() {
+						BeforeEach(func() {
+							versionsToUndelete = []uint{2}
+						})
+
+						It("should not err", AssertNoError())
+					})
+
+					Context("When the version does not exist", func() {
+						BeforeEach(func() {
+							versionsToUndelete = []uint{12}
+						})
+
+						It("should not err", AssertNoError())
+					})
+				})
+
+				Describe("V2Destroy", func() {
+					var versionsToDestroy []uint
+					JustBeforeEach(func() {
+						err = vault.V2Destroy(testSetPath, versionsToDestroy)
+					})
+
+					Context("On one of the existing versions", func() {
+						BeforeEach(func() {
+							versionsToDestroy = []uint{1}
+						})
+
+						It("should destroy only the targeted version", func() {
+							By("not erroring")
+							AssertNoError()()
+
+							By("V2GetMetadata returning metadata for both the deleted and non-deleted versions")
+							var meta vaultkv.V2Metadata
+							meta, err = vault.V2GetMetadata(testSetPath)
+							AssertNoError()()
+							Expect(meta.Versions).To(HaveLen(2))
+
+							By("Having the destroyed version be marked as destroyed")
+							var v1 vaultkv.V2Version
+							v1, err = meta.Version(1)
+							AssertNoError()()
+							Expect(v1.Version).To(BeEquivalentTo(1))
+							Expect(v1.Destroyed).To(BeTrue())
+
+							By("Having the remaining version not be marked as destroyed")
+							var v2 vaultkv.V2Version
+							v2, err = meta.Version(2)
+							AssertNoError()()
+							Expect(v2.Version).To(BeEquivalentTo(2))
+							Expect(v2.Destroyed).To(BeFalse())
+						})
+					})
+
+					Context("on the latest version", func() {
+						BeforeEach(func() {
+							versionsToDestroy = []uint{2}
+						})
+
+						Specify("CurrentVersion should be 2", func() {
+							var meta vaultkv.V2Metadata
+							meta, err = vault.V2GetMetadata(testSetPath)
+							AssertNoError()()
+							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
+						})
+					})
+				})
 			})
 		})
 

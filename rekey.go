@@ -47,11 +47,13 @@ type RekeyState struct {
 func (v *Client) NewRekey(conf RekeyConfig) (*Rekey, error) {
 	err := v.rekeyCancel()
 	if err != nil {
+		err = v.correct500Error(err)
 		return nil, err
 	}
 
 	err = v.rekeyStart(conf)
 	if err != nil {
+		err = v.correct500Error(err)
 		return nil, err
 	}
 
@@ -65,6 +67,7 @@ func (v *Client) CurrentRekey() (*Rekey, error) {
 	var state RekeyState
 	err := v.doSysRequest("GET", "/sys/rekey/init", nil, &state)
 	if err != nil {
+		err = v.correct500Error(err)
 		return nil, err
 	}
 
@@ -76,6 +79,23 @@ func (v *Client) CurrentRekey() (*Rekey, error) {
 		client: v,
 		state:  state,
 	}, nil
+}
+
+//This is here because in Vault 0.10.3, a regression was introduced that causes
+// rekey operations against an uninitialized or sealed Vault to return a 500
+// instead of a 503
+func (v *Client) correct500Error(err error) error {
+	//Thanks, Vault 0.10.3
+	if _, is500 := err.(*ErrInternalServer); is500 {
+		tmpErr := v.Health(true)
+		if _, isUninitialized := tmpErr.(*ErrUninitialized); isUninitialized {
+			err = tmpErr
+		} else if _, isSealed := tmpErr.(*ErrSealed); isSealed {
+			err = tmpErr
+		}
+	}
+
+	return err
 }
 
 func (v *Client) rekeyStart(conf RekeyConfig) error {

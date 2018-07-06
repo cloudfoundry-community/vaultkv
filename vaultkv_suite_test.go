@@ -126,46 +126,7 @@ func buildVaultPath(version string) string {
 	return fmt.Sprintf("/tmp/testvaults/vault-%s-%s", runtime.GOOS, version)
 }
 
-func waitForVersion(version string) error {
-	const existenceThreshold = 5 //Seconds
-
-	var hasntExistedFor = 0
-	var lastSize int64 = 0
-	const consecutiveSameSizeThreshold = 3
-	var consecutiveSameSizeCount = 0
-	for range time.Tick(1 * time.Second) {
-		info, err := os.Stat(buildVaultPath(version))
-		if err != nil {
-			if os.IsNotExist(err) {
-				hasntExistedFor++
-				if hasntExistedFor >= existenceThreshold {
-					return fmt.Errorf("Timed out waiting for vault download to begin")
-				}
-				continue
-			}
-
-			return err
-		}
-
-		if lastSize == info.Size() {
-			consecutiveSameSizeCount++
-			if consecutiveSameSizeCount >= consecutiveSameSizeThreshold {
-				break
-			}
-		} else {
-			consecutiveSameSizeCount = 0
-		}
-	}
-
-	return nil
-}
-
 func downloadVault(version string) error {
-	if config.GinkgoConfig.ParallelNode != 1 {
-		err = waitForVersion(version)
-		return err
-	}
-
 	fmt.Printf("Downloading Vault version %s... ", version)
 	_, err := os.Stat(filepath.Dir(buildVaultPath(version)))
 	if err != nil {
@@ -247,7 +208,21 @@ func downloadVault(version string) error {
 	return nil
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() []byte {
+	_, err = os.Stat(buildVaultPath(currentVaultVersion))
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = downloadVault(currentVaultVersion)
+			if err != nil {
+				panic(fmt.Sprintf("Could not download vault: %s", err))
+			}
+		} else {
+			panic(fmt.Sprintf("Could not stat Vault path `%s': %s", buildVaultPath(currentVaultVersion), err.Error()))
+		}
+	}
+
+	return []byte(buildVaultPath(currentVaultVersion))
+}, func(vaultPath []byte) {
 	var err error
 	var uriStr = fmt.Sprintf("https://127.0.0.1:%d", 8202+config.GinkgoConfig.ParallelNode)
 	vaultURI, err = url.Parse(uriStr)
@@ -323,10 +298,12 @@ listener "tcp" {
 }
 `, vaultURI.Host, certLocation, keyLocation)
 	_, err = configFile.WriteString(vaultConfig)
+
 	if err != nil {
 		panic(fmt.Sprintf("Could not write test config to file: %s", err))
 	}
 
+	configFile.Close()
 })
 
 var _ = AfterSuite(func() {
@@ -355,14 +332,7 @@ func StartVault(version string) {
 	var err error
 	_, err = os.Stat(buildVaultPath(version))
 	if err != nil {
-		if !os.IsNotExist(err) {
-			panic(fmt.Sprintf("Could not lookup Vault path `%s': %s", buildVaultPath(version), err.Error()))
-		}
-
-		err = downloadVault(version)
-		if err != nil {
-			panic(fmt.Sprintf("When downloading Vault version `%s': %s", version, err.Error()))
-		}
+		panic(fmt.Sprintf("Could not stat Vault path `%s': %s", buildVaultPath(version), err.Error()))
 	}
 
 	//Gotta get that IPC from Vault in case we want to report errors

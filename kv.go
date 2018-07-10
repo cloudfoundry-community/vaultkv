@@ -1,18 +1,27 @@
 package vaultkv
 
+import (
+	"fmt"
+	"reflect"
+)
+
 //Get retrieves the secret at the given path and unmarshals it into the given
-//output object. If the object is nil, an unmarshal will not be attempted (this
-//can be used to check for existence). If the object could not be unmarshalled
-//into, the resultant error is returned. Example path would be /secret/foo, if
-//Key/Value backend were mounted at "/secret". The Vault must be unsealed and
-// initialized for this endpoint to work. No assumptions are made about the
-// mounting point of your Key/Value backend.
+//output object using the semantics of encoding/json.Unmarshal. If the object
+//is nil, an unmarshal will not be attempted (this can be used to check for
+//existence). If the object could not be unmarshalled into, the resultant error
+//is returned. Example path would be /secret/foo, if Key/Value backend were
+//mounted at "/secret". The Vault must be unsealed and initialized for this
+//endpoint to work. No assumptions are made about the mounting point of your
+//Key/Value backend.
 func (v *Client) Get(path string, output interface{}) error {
-	//TODO: Don't unmarshal into pointer - instead, validate that a pointer was
-	// given to this function
+	if output != nil &&
+		reflect.ValueOf(output).Kind() != reflect.Ptr {
+		return fmt.Errorf("Get output target must be a pointer if non-nil")
+	}
+
 	var unmarshalInto interface{}
 	if output != nil {
-		unmarshalInto = &vaultResponse{Data: &output}
+		unmarshalInto = &vaultResponse{Data: output}
 	}
 
 	err := v.doRequest("GET", path, nil, unmarshalInto)

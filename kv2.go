@@ -109,7 +109,7 @@ type V2GetOpts struct {
 func (c *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V2Version, err error) {
 	if output != nil &&
 		reflect.ValueOf(output).Kind() != reflect.Ptr {
-		err = fmt.Errorf("V2Get output must be a pointer")
+		err = fmt.Errorf("V2Get output target must be a pointer if non-nil")
 		return
 	}
 

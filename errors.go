@@ -17,6 +17,12 @@ func (e *ErrBadRequest) Error() string {
 	return e.message
 }
 
+//IsBadRequest returns true if the error is an ErrBadRequest
+func IsBadRequest(err error) bool {
+	_, is := err.(*ErrBadRequest)
+	return is
+}
+
 //ErrForbidden represents 403 status codes returned from the API. This could be
 // if your auth is wrong or expired, or you simply don't have access to do the
 // particular thing you're trying to do. Check your privilege.
@@ -26,6 +32,12 @@ type ErrForbidden struct {
 
 func (e *ErrForbidden) Error() string {
 	return e.message
+}
+
+//IsForbidden returns true if the error is an ErrForbidden
+func IsForbidden(err error) bool {
+	_, is := err.(*ErrForbidden)
+	return is
 }
 
 //ErrNotFound represents 404 status codes returned from the API. This could be
@@ -40,6 +52,12 @@ func (e *ErrNotFound) Error() string {
 	return e.message
 }
 
+//IsNotFound returns true if the error is an ErrNotFound
+func IsNotFound(err error) bool {
+	_, is := err.(*ErrNotFound)
+	return is
+}
+
 //ErrStandby is only returned from Health() if standbyok is set to false and the
 // node you're querying is a standby.
 type ErrStandby struct {
@@ -50,6 +68,12 @@ func (e *ErrStandby) Error() string {
 	return e.message
 }
 
+//IsErrStandby returns true if the error is an ErrStandby
+func IsErrStandby(err error) bool {
+	_, is := err.(*ErrStandby)
+	return is
+}
+
 //ErrInternalServer represents 500 status codes that are returned from the API.
 //See: their fault.
 type ErrInternalServer struct {
@@ -58,6 +82,12 @@ type ErrInternalServer struct {
 
 func (e *ErrInternalServer) Error() string {
 	return e.message
+}
+
+//IsInternalServer returns true if the error is an ErrInternalServer
+func IsInternalServer(err error) bool {
+	_, is := err.(*ErrInternalServer)
+	return is
 }
 
 //ErrSealed represents the 503 status code that is returned by Vault most
@@ -71,6 +101,12 @@ func (e *ErrSealed) Error() string {
 	return e.message
 }
 
+//IsSealed returns true if the error is an ErrSealed
+func IsSealed(err error) bool {
+	_, is := err.(*ErrSealed)
+	return is
+}
+
 //ErrUninitialized represents a 503 status code being returned and the Vault
 //being uninitialized.
 type ErrUninitialized struct {
@@ -81,6 +117,12 @@ func (e *ErrUninitialized) Error() string {
 	return e.message
 }
 
+//IsUninitialized returns true if the error is an ErrUninitialized
+func IsUninitialized(err error) bool {
+	_, is := err.(*ErrUninitialized)
+	return is
+}
+
 //ErrTransport is returned if an error was encountered trying to reach the API,
 // as opposed to an error from the API, is returned
 type ErrTransport struct {
@@ -89,6 +131,12 @@ type ErrTransport struct {
 
 func (e *ErrTransport) Error() string {
 	return e.message
+}
+
+//IsTransport returns true if the error is an ErrTransport
+func IsTransport(err error) bool {
+	_, is := err.(*ErrTransport)
+	return is
 }
 
 type apiError struct {

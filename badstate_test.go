@@ -38,8 +38,7 @@ var _ = When("the vault is uninitialized", func() {
 			(s.Setup)()
 			Expect(err).To(HaveOccurred(),
 				fmt.Sprintf("`%s' did not produce an error", s.Name))
-			Expect(err).To(BeAssignableToTypeOf(&vaultkv.ErrUninitialized{}),
-				fmt.Sprintf("`%s' did not make error of type *ErrUninitialized", s.Name))
+			Expect(vaultkv.IsUninitialized(err)).To(BeTrue())
 		}
 	})
 })
@@ -85,7 +84,7 @@ var _ = When("the vault is initialized", func() {
 				(s.Setup)()
 				Expect(err).To(HaveOccurred(),
 					fmt.Sprintf("`%s' did not produce an error", s.Name))
-				Expect(err).To(BeAssignableToTypeOf(&vaultkv.ErrSealed{}),
+				Expect(vaultkv.IsSealed(err)).To(BeTrue(),
 					fmt.Sprintf("`%s' did not make error of type *ErrSealed", s.Name))
 			}
 		})
@@ -110,7 +109,7 @@ var _ = When("the vault is initialized", func() {
 					(s.Setup)()
 					Expect(err).To(HaveOccurred(),
 						fmt.Sprintf("`%s' did not produce an error", s.Name))
-					Expect(err).To(BeAssignableToTypeOf(&vaultkv.ErrNotFound{}),
+					Expect(vaultkv.IsNotFound(err)).To(BeTrue(),
 						fmt.Sprintf("`%s' did not make error of type *ErrNotFound", s.Name))
 				}
 			})
@@ -139,8 +138,7 @@ var _ = When("the vault is initialized", func() {
 						(s.Setup)()
 						Expect(err).To(HaveOccurred(),
 							fmt.Sprintf("`%s' did not produce an error", s.Name))
-						Expect(err).To(BeAssignableToTypeOf(&vaultkv.ErrForbidden{}),
-							fmt.Sprintf("`%s' did not make error of type *ErrForbidden", s.Name))
+						Expect(vaultkv.IsForbidden(err)).To(BeTrue())
 					}
 				})
 			})

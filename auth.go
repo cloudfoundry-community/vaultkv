@@ -99,3 +99,9 @@ func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err e
 
 	return
 }
+
+//TokenRenewSelf takes the token in the Client object and attempts to renew its
+// lease.
+func (v *Client) TokenRenewSelf() (err error) {
+	return v.doRequest("POST", "/auth/token/renew-self", nil, nil)
+}

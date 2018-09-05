@@ -234,7 +234,7 @@ var _ = Describe("Kv", func() {
 			var secondTestPath string
 			var secondTestValue map[string]string
 			BeforeEach(func() {
-				secondTestPath = "secret/foo/bar"
+				secondTestPath = "secret/beep/bar"
 				secondTestValue = map[string]string{
 					"werealljustlittlebabybirds": "peckingourwayoutofourshells",
 				}
@@ -274,13 +274,13 @@ var _ = Describe("Kv", func() {
 						AssertNoError()
 
 						By("returning the correct list of paths")
-						AssertListEquals([]string{"foo", "foo/"})
+						AssertListEquals([]string{"foo", "beep/"})
 					})
 				})
 
 				Context("on the dir of the nested key", func() {
 					BeforeEach(func() {
-						listTestPath = "secret/foo"
+						listTestPath = "secret/beep"
 					})
 
 					It("should return the correct paths", func() {
@@ -295,6 +295,14 @@ var _ = Describe("Kv", func() {
 				When("the path doesn't exist", func() {
 					BeforeEach(func() {
 						listTestPath = "secret/boo/hiss"
+					})
+
+					It("should return an ErrNotFound", AssertErrorOfType(&vaultkv.ErrNotFound{}))
+				})
+
+				When("the path is a secret, not a folder", func() {
+					BeforeEach(func() {
+						listTestPath = "secret/foo"
 					})
 
 					It("should return an ErrNotFound", AssertErrorOfType(&vaultkv.ErrNotFound{}))

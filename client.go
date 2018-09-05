@@ -71,11 +71,21 @@ func (v *Client) doRequest(
 	if token == "" {
 		token = "01234567-89ab-cdef-0123-456789abcdef"
 	}
-	req.Header.Add("X-Vault-Token", token)
+	req.Header.Set("X-Vault-Token", token)
 
 	client := v.Client
 	if client == nil {
 		client = http.DefaultClient
+	}
+
+	if client.CheckRedirect == nil {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if len(via) > 10 {
+				return fmt.Errorf("Stopped after 10 redirects")
+			}
+			req.Header.Set("X-Vault-Token", token)
+			return nil
+		}
 	}
 
 	resp, err := client.Do(req)

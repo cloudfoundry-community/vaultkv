@@ -41,17 +41,11 @@ type RekeyState struct {
 	Backup          bool     `json:"backup"`
 }
 
-//NewRekey will cancel the current rekey if one is in progress. If starting a
-// rekey is successful, a *Rekey is returned containing the necessary state
-// for submitting keys for this rekey operation.
+//NewRekey will start a new rekey operation. If successful, a *Rekey is
+//returned containing the necessary state for submitting keys for this rekey
+//operation.
 func (v *Client) NewRekey(conf RekeyConfig) (*Rekey, error) {
-	err := v.rekeyCancel()
-	if err != nil {
-		err = v.correct500Error(err)
-		return nil, err
-	}
-
-	err = v.rekeyStart(conf)
+	err := v.rekeyStart(conf)
 	if err != nil {
 		err = v.correct500Error(err)
 		return nil, err
@@ -104,10 +98,11 @@ func (v *Client) rekeyStart(conf RekeyConfig) error {
 
 //Cancel tells Vault to forget about the current rekey operation
 func (r *Rekey) Cancel() error {
-	return r.client.rekeyCancel()
+	return r.client.RekeyCancel()
 }
 
-func (v *Client) rekeyCancel() error {
+//RekeyCancel tells Vault to forget about the current rekey operation
+func (v *Client) RekeyCancel() error {
 	return v.doSysRequest("DELETE", "/sys/rekey/init", nil, nil)
 }
 

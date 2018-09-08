@@ -8,12 +8,16 @@ import (
 	"regexp"
 )
 
+//GenerateRoot has functions for generating a new root token. Create this
+//object with NewGenerateRoot(). That function performs the necessary
+//initialization for the process
 type GenerateRoot struct {
 	client *Client
 	otp    []byte
 	state  GenerateRootState
 }
 
+//GenerateRootState contains state information about the GenerateRoot operation
 type GenerateRootState struct {
 	Started  bool   `json:"started"`
 	Nonce    string `json:"nonce"`
@@ -26,6 +30,7 @@ type GenerateRootState struct {
 	Complete         bool   `json:"complete"`
 }
 
+//NewGenerateRoot initializes and returns a new generate root object.
 func (v *Client) NewGenerateRoot() (*GenerateRoot, error) {
 	ret := GenerateRoot{
 		client: v,
@@ -88,8 +93,14 @@ func (g *GenerateRoot) Submit(keys ...string) (done bool, err error) {
 	return g.state.Complete, nil
 }
 
+//Cancel cancels the current generate root operation
 func (g *GenerateRoot) Cancel() error {
-	return g.client.doSysRequest("DELETE", "/sys/generate-root/attempt", nil, nil)
+	return g.client.GenerateRootCancel()
+}
+
+//GenerateRootCancel cancels the current generate root operation
+func (v *Client) GenerateRootCancel() error {
+	return v.doSysRequest("DELETE", "/sys/generate-root/attempt", nil, nil)
 }
 
 func (v *Client) genRootSubmit(key string, nonce string) (ret GenerateRootState, err error) {

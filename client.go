@@ -63,6 +63,7 @@ func (v *Client) doRequest(
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
 		err = v.parseError(resp)
@@ -126,7 +127,6 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 	if err != nil {
 		return nil, &ErrTransport{message: err.Error()}
 	}
-	defer resp.Body.Close()
 
 	if v.Trace != nil {
 		dump, _ := httputil.DumpResponse(resp, true)

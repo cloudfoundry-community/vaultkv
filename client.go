@@ -60,6 +60,9 @@ func (v *Client) doRequest(
 	}
 
 	resp, err := v.Curl(method, path, query, body)
+	if err != nil {
+		return err
+	}
 
 	if resp.StatusCode/100 != 2 {
 		err = v.parseError(resp)
@@ -77,7 +80,8 @@ func (v *Client) doRequest(
 }
 
 //Curl takes the given path, prepends <VaultURL>/v1/ to it, and makes the request
-// with the remainder of the given parameters.
+// with the remainder of the given parameters. Errors returned only reflect
+// transport errors, not HTTP semantic errors
 func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.Reader) (*http.Response, error) {
 	//Setup URL
 	u := *v.VaultURL

@@ -122,7 +122,8 @@ var rekeyRegexp = regexp.MustCompile("no (barrier )?rekey in progress")
 //cancelled, but is instead reset. No error is given for an incorrect key
 //before the threshold is reached. An *ErrBadRequest may also be returned if
 //there is no longer any rekey in progress, but in this case, done will be
-//returned as true.
+//returned as true. To retrieve the new keys after submitting enough existing
+//keys, call Keys() on the Rekey object.
 func (r *Rekey) Submit(keys ...string) (done bool, err error) {
 	for _, key := range keys {
 		var result interface{}
@@ -132,7 +133,8 @@ func (r *Rekey) Submit(keys ...string) (done bool, err error) {
 				r.state.Progress = 0
 				//I really hate error string checking, but there's no good way that doesn't
 				//require another API call (which could, in turn, err, and leave us in a
-				//wrong state)
+				//wrong state). This checks if the rekey operation is no longer in
+				//progress
 				if rekeyRegexp.MatchString(ebr.message) {
 					done = true
 				}

@@ -266,7 +266,7 @@ var _ = Describe("Rekey", func() {
 								JustBeforeEach(func() {
 									for _, key := range initOutput.Keys {
 										rekeyDone, err = rekey.Submit(key)
-										AssertNoError()
+										AssertNoError()()
 									}
 								})
 

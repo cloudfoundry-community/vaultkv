@@ -28,7 +28,7 @@ var _ = Describe("Kv", func() {
 		if exists {
 			fn = func() {
 				err = vault.Get(getAssertionPath, nil)
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 			}
 		} else {
 			fn = func() {
@@ -95,7 +95,7 @@ var _ = Describe("Kv", func() {
 
 			It("should get inserted properly", func() {
 				By("not erroring")
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 
 				By("having get find the key at the path without a slash")
 				getAssertionPath = strings.TrimPrefix(testPath, "/")
@@ -120,7 +120,7 @@ var _ = Describe("Kv", func() {
 
 			It("should get inserted properly", func() {
 				By("not erroring")
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 
 				By("having get find the key at the path without a slash")
 				getAssertionPath = strings.TrimSuffix(testPath, "/")
@@ -153,7 +153,7 @@ var _ = Describe("Kv", func() {
 
 			It("should overwrite the value", func() {
 				By("not erroring")
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 
 				By("having Get find the value that was added second")
 				AssertGetEquals(map[string]string{"thisisanotherkey": "thisisanothervalue"})
@@ -164,11 +164,6 @@ var _ = Describe("Kv", func() {
 			var getTestPath string
 			var getOutputValue map[string]string
 
-			var AssertGetEqualsSet = func() func() {
-				return func() {
-					Expect(getOutputValue).To(Equal(testValue))
-				}
-			}
 			BeforeEach(func() {
 				getOutputValue = make(map[string]string)
 			})
@@ -184,10 +179,10 @@ var _ = Describe("Kv", func() {
 
 				It("should retrieve the key", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("returning the value that was inserted")
-					AssertGetEqualsSet()()
+					Expect(getOutputValue).To(Equal(testValue))
 				})
 			})
 
@@ -214,7 +209,7 @@ var _ = Describe("Kv", func() {
 
 				It("should delete the key", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("get not finding the deleted key")
 					AssertExists(false)()
@@ -226,7 +221,7 @@ var _ = Describe("Kv", func() {
 					deleteTestPath = fmt.Sprintf("%sabcd", testPath)
 				})
 
-				It("should not return an error", AssertNoError())
+				It("should not return an error", func() { Expect(err).NotTo(HaveOccurred()) })
 			})
 		})
 
@@ -242,7 +237,7 @@ var _ = Describe("Kv", func() {
 
 			JustBeforeEach(func() {
 				err = vault.Set(secondTestPath, secondTestValue)
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Describe("List", func() {
@@ -271,7 +266,7 @@ var _ = Describe("Kv", func() {
 
 					It("should return the correct paths", func() {
 						By("not erroring")
-						AssertNoError()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("returning the correct list of paths")
 						AssertListEquals([]string{"foo", "beep/"})
@@ -285,7 +280,7 @@ var _ = Describe("Kv", func() {
 
 					It("should return the correct paths", func() {
 						By("not erroring")
-						AssertNoError()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("returning the correct list of paths")
 						AssertListEquals([]string{"bar"})
@@ -327,7 +322,7 @@ var _ = Describe("Kv", func() {
 
 					It("should retrieve the value", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("returning the value that was inserted")
 						Expect(getOutputValue).To(Equal(secondTestValue))
@@ -348,7 +343,7 @@ var _ = Describe("Kv", func() {
 
 					It("should delete the key", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having Get be unable to find the key")
 						AssertExists(false)()

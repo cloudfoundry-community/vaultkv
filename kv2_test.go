@@ -21,7 +21,7 @@ var _ = Describe("KVv2", func() {
 				Options: vaultkv.KVMountOptions{}.WithVersion(2),
 			})
 
-			AssertNoError()()
+			Expect(err).NotTo(HaveOccurred())
 		}
 	})
 
@@ -135,7 +135,7 @@ var _ = Describe("KVv2", func() {
 						testDeleteOptions = nil
 					})
 
-					It("should not err", AssertNoError())
+					It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 
 					Describe("V2Get", func() {
 						JustBeforeEach(func() {
@@ -186,13 +186,13 @@ var _ = Describe("KVv2", func() {
 
 						It("should undelete the key", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("V2Get finding the undeleted key")
 							testGetOutput := map[string]interface{}{}
 							var testGetVersionOutput vaultkv.V2Version
 							testGetVersionOutput, err = vault.V2Get(testSetPath, &testGetOutput, nil)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("V2Get returning the V2Set's original version info")
 							Expect(testGetVersionOutput).To(Equal(testVersionOutput))
@@ -245,7 +245,7 @@ var _ = Describe("KVv2", func() {
 
 						It("should delete the specified version", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("V2Get being unable to find it")
 							_, err = vault.V2Get(testSetPath, nil, nil)
@@ -257,7 +257,7 @@ var _ = Describe("KVv2", func() {
 								err = vault.V2Delete(testSetPath, testDeleteOptions)
 							})
 
-							It("should not err", AssertNoError())
+							It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 						})
 					})
 
@@ -268,7 +268,7 @@ var _ = Describe("KVv2", func() {
 							}
 						})
 
-						It("should not err", AssertNoError())
+						It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 					})
 				})
 			})
@@ -281,7 +281,7 @@ var _ = Describe("KVv2", func() {
 
 					It("should delete the metadata", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("V2Get being unable to find the key")
 						_, err = vault.V2Get(testSetPath, nil, nil)
@@ -300,20 +300,20 @@ var _ = Describe("KVv2", func() {
 
 					It("should not delete anything", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("V2Get being able to find the key")
 						_, err = vault.V2Get(testSetPath, nil, nil)
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("V2GetMetadata being able to find the key")
 						var meta vaultkv.V2Metadata
 						meta, err = vault.V2GetMetadata(testSetPath)
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("V2GetMetadata reporting that version 1 still exists")
 						_, err = meta.Version(1)
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 					})
 				})
 
@@ -322,7 +322,7 @@ var _ = Describe("KVv2", func() {
 						err = vault.V2Destroy(testSetPath+"abcd", []uint{12})
 					})
 
-					It("should not err", AssertNoError())
+					It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 				})
 			})
 
@@ -333,7 +333,7 @@ var _ = Describe("KVv2", func() {
 
 				It("should delete the metadata", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("V2Get being unable to find the key")
 					_, err = vault.V2Get(testSetPath, nil, nil)
@@ -352,7 +352,7 @@ var _ = Describe("KVv2", func() {
 				})
 				JustBeforeEach(func() {
 					testVersionOutput, err = vault.V2Set(testSetPath, testSet2Values, nil)
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 				})
 
 				Describe("V2Get", func() {
@@ -371,7 +371,7 @@ var _ = Describe("KVv2", func() {
 
 						It("should get the latest version", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("having the retrieved value match what was put in second")
 							Expect(testGet2Output).To(BeEquivalentTo(testSet2Values))
@@ -388,7 +388,7 @@ var _ = Describe("KVv2", func() {
 
 						It("should get the latest version", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("having the retrieved value match what was put in second")
 							Expect(testGet2Output).To(BeEquivalentTo(testSet2Values))
@@ -404,7 +404,7 @@ var _ = Describe("KVv2", func() {
 						})
 						It("should get version 1", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("having the retrieved value match what was put in first")
 							Expect(testGet2Output).To(BeEquivalentTo(testSetValues))
@@ -444,16 +444,16 @@ var _ = Describe("KVv2", func() {
 
 						It("should delete the first version", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("V2GetMetadata returning that the first version has a deletion time")
 							var meta vaultkv.V2Metadata
 							meta, err = vault.V2GetMetadata(testSetPath)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							var v1 vaultkv.V2Version
 							v1, err = meta.Version(1)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							Expect(v1.Version).To(BeEquivalentTo(1))
 							Expect(v1.DeletedAt).NotTo(BeNil())
@@ -461,7 +461,7 @@ var _ = Describe("KVv2", func() {
 							By("V2GetMetadata returning that the second version is not deleted")
 							var v2 vaultkv.V2Version
 							v2, err = meta.Version(2)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							Expect(v2.Version).To(BeEquivalentTo(2))
 							Expect(v2.DeletedAt).To(BeNil())
@@ -478,7 +478,7 @@ var _ = Describe("KVv2", func() {
 						Specify("CurrentVersion should be 2", func() {
 							var meta vaultkv.V2Metadata
 							meta, err = vault.V2GetMetadata(testSetPath)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
 						})
 					})
@@ -495,7 +495,7 @@ var _ = Describe("KVv2", func() {
 							versionsToUndelete = []uint{2}
 						})
 
-						It("should not err", AssertNoError())
+						It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 					})
 
 					Context("When the version does not exist", func() {
@@ -503,7 +503,7 @@ var _ = Describe("KVv2", func() {
 							versionsToUndelete = []uint{12}
 						})
 
-						It("should not err", AssertNoError())
+						It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 					})
 				})
 
@@ -520,25 +520,25 @@ var _ = Describe("KVv2", func() {
 
 						It("should destroy only the targeted version", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("V2GetMetadata returning metadata for both the deleted and non-deleted versions")
 							var meta vaultkv.V2Metadata
 							meta, err = vault.V2GetMetadata(testSetPath)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.Versions).To(HaveLen(2))
 
 							By("Having the destroyed version be marked as destroyed")
 							var v1 vaultkv.V2Version
 							v1, err = meta.Version(1)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							Expect(v1.Version).To(BeEquivalentTo(1))
 							Expect(v1.Destroyed).To(BeTrue())
 
 							By("Having the remaining version not be marked as destroyed")
 							var v2 vaultkv.V2Version
 							v2, err = meta.Version(2)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							Expect(v2.Version).To(BeEquivalentTo(2))
 							Expect(v2.Destroyed).To(BeFalse())
 						})
@@ -552,7 +552,7 @@ var _ = Describe("KVv2", func() {
 						Specify("CurrentVersion should be 2", func() {
 							var meta vaultkv.V2Metadata
 							meta, err = vault.V2GetMetadata(testSetPath)
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
 						})
 					})
@@ -567,7 +567,7 @@ var _ = Describe("KVv2", func() {
 			Context("and the key does not yet exist", func() {
 				It("should write the values", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("returning proper metadata")
 					Expect(testVersionOutput.Version).To(BeEquivalentTo(1))
@@ -578,7 +578,7 @@ var _ = Describe("KVv2", func() {
 				BeforeEach(func() {
 					var meta vaultkv.V2Version
 					meta, err = vault.V2Set(testSetPath, testSetValues, nil)
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 					Expect(meta.Version).To(BeEquivalentTo(1))
 				})
 

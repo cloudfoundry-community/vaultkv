@@ -57,7 +57,7 @@ var _ = When("the vault is initialized", func() {
 			Shares:    1,
 			Threshold: 1,
 		})
-		AssertNoError()()
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	When("the vault is sealed", func() {

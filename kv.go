@@ -19,12 +19,7 @@ func (v *Client) Get(path string, output interface{}) error {
 		return fmt.Errorf("Get output target must be a pointer if non-nil")
 	}
 
-	var unmarshalInto interface{}
-	if output != nil {
-		unmarshalInto = &vaultResponse{Data: output}
-	}
-
-	err := v.doRequest("GET", path, nil, unmarshalInto)
+	err := v.doRequest("GET", path, nil, &vaultResponse{Data: output})
 	if err != nil {
 		return err
 	}

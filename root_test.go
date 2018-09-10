@@ -31,7 +31,7 @@ var _ = Describe("Generate Root", func() {
 				Shares:    initShares,
 				Threshold: initThreshold,
 			})
-			AssertNoError()()
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("Vault is sealed", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Generate Root", func() {
 		When("Vault is unsealed", func() {
 			JustBeforeEach(func() {
 				err = initOutput.Unseal()
-				AssertNoError()()
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Describe("Starting a new rekey operation", func() {
@@ -66,7 +66,7 @@ var _ = Describe("Generate Root", func() {
 				Context("With one key in the previous initialization", func() {
 					It("should generate a new root token properly", func() {
 						By("initializing the generate root operation without erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having remaining report one")
 						AssertRemaining(1)()
@@ -84,7 +84,7 @@ var _ = Describe("Generate Root", func() {
 						var genRootDone bool
 						genRootDone, err = genRoot.Submit(initOutput.Keys[0])
 						By("having the first key submission not err")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having the first key submission finish the rekey")
 						Expect(genRootDone).To(BeTrue())
@@ -95,7 +95,7 @@ var _ = Describe("Generate Root", func() {
 						var newToken string
 						newToken, err = genRoot.RootToken()
 						By("having RootToken not err")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having RootToken give back the root token")
 						Expect(newToken).NotTo(BeEmpty())
@@ -108,7 +108,7 @@ var _ = Describe("Generate Root", func() {
 						}
 
 						err = vault.EnableSecretsMount("beep", vaultkv.Mount{Type: mountType})
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 					})
 
 					Describe("Submitting too many keys all at once", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Generate Root", func() {
 
 						It("should properly unseal the vault (as long as the first keys are correct)", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("saying that the rekey is done")
 							Expect(genRootDone).To(BeTrue())
@@ -151,7 +151,7 @@ var _ = Describe("Generate Root", func() {
 
 					It("should allow new root token generation attempt to be created", func() {
 						By("not erroring from the creation of the generate root operation")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having Remaining return three")
 						AssertRemaining(3)()
@@ -159,7 +159,7 @@ var _ = Describe("Generate Root", func() {
 						By("having the first key submission not err")
 						var genRootDone bool
 						genRootDone, err = genRoot.Submit(initOutput.Keys[0])
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("not claiming to be done with the generate root operation")
 						Expect(genRootDone).To(BeFalse())
@@ -169,7 +169,7 @@ var _ = Describe("Generate Root", func() {
 
 						By("cancelling the rekey not returning an error")
 						err = genRoot.Cancel()
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("submitting after the rekey was cancelled returning an ErrBadRequest")
 						genRootDone, err = genRoot.Submit(initOutput.Keys[0])
@@ -189,7 +189,7 @@ var _ = Describe("Generate Root", func() {
 
 							It("should rekey the vault successfully", func() {
 								By("not erroring")
-								AssertNoError()()
+								Expect(err).NotTo(HaveOccurred())
 
 								By("claiming that the rekey is done")
 								Expect(genRootDone).To(BeTrue())
@@ -203,7 +203,7 @@ var _ = Describe("Generate Root", func() {
 							JustBeforeEach(func() {
 								for _, key := range initOutput.Keys {
 									genRootDone, err = genRoot.Submit(key)
-									AssertNoError()()
+									Expect(err).NotTo(HaveOccurred())
 								}
 							})
 

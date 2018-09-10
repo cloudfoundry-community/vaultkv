@@ -435,12 +435,6 @@ func NewTestClient() *vaultkv.Client {
 	}
 }
 
-func AssertNoError() func() {
-	return func() {
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
-
 func AssertErrorOfType(t interface{}) func() {
 	return func() {
 		Expect(err).To(HaveOccurred())
@@ -454,8 +448,8 @@ func InitAndUnsealVault() {
 		Shares:    1,
 		Threshold: 1,
 	})
-	AssertNoError()()
+	Expect(err).NotTo(HaveOccurred())
 
 	_, err = vault.Unseal(initOut.Keys[0])
-	AssertNoError()()
+	Expect(err).NotTo(HaveOccurred())
 }

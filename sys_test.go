@@ -76,7 +76,7 @@ var _ = Describe("Sys", func() {
 
 				It("should initialize the vault", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("returning a root token")
 					AssertHasRootToken()()
@@ -95,7 +95,7 @@ var _ = Describe("Sys", func() {
 
 					It("should unseal the vault properly", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("the vault saying that it is unsealed")
 						sealState, err := vault.SealStatus()
@@ -116,7 +116,7 @@ var _ = Describe("Sys", func() {
 
 				It("should initialize the vault", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("returning a root token")
 					AssertHasRootToken()()
@@ -227,7 +227,7 @@ var _ = Describe("Sys", func() {
 
 					It("should unseal the vault", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("returning that the unseal is finished")
 						AssertSealed(false)()
@@ -244,7 +244,7 @@ var _ = Describe("Sys", func() {
 
 						It("should idempotently state that the vault is unsealed", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("returning that the unseal is finished")
 							AssertSealed(false)()
@@ -326,7 +326,7 @@ var _ = Describe("Sys", func() {
 
 					It("should unseal the vault", func() {
 						By("not returning an error after the first key is given")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("increasing the progress count to one")
 						AssertProgressIs(1)()
@@ -358,7 +358,7 @@ var _ = Describe("Sys", func() {
 
 						By("not returning an error after the second key is given")
 						output, err = vault.Unseal(initOut.Keys[1])
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("increasing the progress count to two")
 						AssertProgressIs(2)()
@@ -371,7 +371,7 @@ var _ = Describe("Sys", func() {
 
 						By("not returning an error after the final key is given")
 						output, err = vault.Unseal(initOut.Keys[2])
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("returning that the Vault is now unsealed")
 						AssertSealed(false)()
@@ -383,14 +383,14 @@ var _ = Describe("Sys", func() {
 					Describe("ResetUnseal", func() {
 						JustBeforeEach(func() {
 							output, err = vault.Unseal(initOut.Keys[0])
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 							AssertProgressIs(1)()
 							err = vault.ResetUnseal()
 						})
 
 						It("should reset the current unseal attempt", func() {
 							By("not erroring")
-							AssertNoError()()
+							Expect(err).NotTo(HaveOccurred())
 
 							By("having SealState claim that the progress is 0")
 							AssertProgressIs(0)()
@@ -407,7 +407,7 @@ var _ = Describe("Sys", func() {
 		})
 
 		When("the vault is not initialized", func() {
-			It("should not return an error", AssertNoError())
+			It("should not return an error", func() { Expect(err).NotTo(HaveOccurred()) })
 		})
 
 		When("the vault is initialized", func() {
@@ -422,7 +422,7 @@ var _ = Describe("Sys", func() {
 
 				It("should idempotently return that the vault is sealed", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("the vault claiming that it is still sealed")
 					AssertStatusSealed(true)()
@@ -439,7 +439,7 @@ var _ = Describe("Sys", func() {
 
 				It("should seal the vault", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("the vault saying that it is now sealed")
 					AssertStatusSealed(true)()
@@ -483,7 +483,7 @@ var _ = Describe("Sys", func() {
 				}
 			})
 
-			It("should not err", AssertNoError())
+			It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 
 			Describe("Listing the backends", func() {
 				var backendList map[string]vaultkv.Mount
@@ -493,7 +493,7 @@ var _ = Describe("Sys", func() {
 
 				It("should show the new backend in the list", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("having a backend with the correct name")
 					backend, ok := backendList[testBackendName]
@@ -511,7 +511,7 @@ var _ = Describe("Sys", func() {
 				JustBeforeEach(func() {
 					err = vault.DisableSecretsMount(testBackendName)
 				})
-				It("should not err", AssertNoError())
+				It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 
 				Describe("Listing the backends", func() {
 					var backendList map[string]vaultkv.Mount
@@ -521,7 +521,7 @@ var _ = Describe("Sys", func() {
 
 					It("should provide a list that has the backend gone", func() {
 						By("not erroring")
-						AssertNoError()()
+						Expect(err).NotTo(HaveOccurred())
 
 						By("having the mount not be present")
 						_, ok := backendList[testBackendName]
@@ -535,7 +535,7 @@ var _ = Describe("Sys", func() {
 					err = vault.DisableSecretsMount("hsaetdieogudsoearu")
 				})
 
-				It("should not err", AssertNoError())
+				It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 			})
 		})
 
@@ -552,7 +552,7 @@ var _ = Describe("Sys", func() {
 				}
 			})
 
-			It("should not err", AssertNoError())
+			It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
 
 			Describe("Listing the backends", func() {
 				var backendList map[string]vaultkv.Mount
@@ -562,7 +562,7 @@ var _ = Describe("Sys", func() {
 
 				It("should have a backend which is properly configured", func() {
 					By("not erroring")
-					AssertNoError()()
+					Expect(err).NotTo(HaveOccurred())
 					By("being in the returned list")
 					backend, ok := backendList[testBackendName]
 					Expect(ok).To(BeTrue(), "Expected the created backend to appear in the mount list")
@@ -599,14 +599,14 @@ var _ = Describe("Sys", func() {
 					Expect(sealState.Sealed).To(BeFalse())
 				})
 
-				It("should not return an error", AssertNoError())
+				It("should not return an error", func() { Expect(err).NotTo(HaveOccurred()) })
 
 				When("the auth token is wrong", func() {
 					BeforeEach(func() {
 						vault.AuthToken = ""
 					})
 
-					It("should not return an error", AssertNoError())
+					It("should not return an error", func() { Expect(err).NotTo(HaveOccurred()) })
 				})
 			})
 		})

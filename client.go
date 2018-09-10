@@ -72,9 +72,8 @@ func (v *Client) doRequest(
 		}
 	}
 
-	//If the status code is 204, there is no body. That leaves only 200.
 	if output != nil && resp.StatusCode == 200 {
-		err = json.NewDecoder(resp.Body).Decode(&output)
+		err = json.NewDecoder(resp.Body).Decode(output)
 	}
 
 	return err

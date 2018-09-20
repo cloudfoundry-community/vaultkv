@@ -66,10 +66,7 @@ func (v *Client) doRequest(
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		err = v.parseError(resp)
-		if err != nil {
-			return err
-		}
+		return v.parseError(resp)
 	}
 
 	if output != nil && resp.StatusCode == 200 {

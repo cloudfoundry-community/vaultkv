@@ -2,6 +2,7 @@ package vaultkv
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 )
 
@@ -160,6 +161,15 @@ type rekeyKeys struct {
 }
 
 func (v *Client) rekeySubmit(key string, nonce string) (ret interface{}, err error) {
+	if key == "" {
+		err = fmt.Errorf("no key provided")
+		return
+	}
+	if nonce == "" {
+		err = fmt.Errorf("no nonce provided")
+		return
+	}
+
 	tempMap := make(map[string]interface{})
 	err = v.doSysRequest(
 		"PUT",

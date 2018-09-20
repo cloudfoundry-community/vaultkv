@@ -145,7 +145,10 @@ type apiError struct {
 
 func (v *Client) parseError(r *http.Response) (err error) {
 	errorsStruct := apiError{}
-	json.NewDecoder(r.Body).Decode(&errorsStruct)
+	err = json.NewDecoder(r.Body).Decode(&errorsStruct)
+	if err != nil {
+		return err
+	}
 	errorMessage := strings.Join(errorsStruct.Errors, "\n")
 
 	switch r.StatusCode {

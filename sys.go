@@ -15,9 +15,9 @@ func (v *Client) doSysRequest(
 	err := v.doRequest(method, path, input, output)
 	//In sys contexts, 400 can mean that the Vault is uninitialized.
 	if _, is400 := err.(*ErrBadRequest); is400 {
-		initialized, err := v.IsInitialized()
-		if err != nil {
-			return err
+		initialized, initErr := v.IsInitialized()
+		if initErr != nil {
+			return initErr
 		}
 
 		if !initialized {

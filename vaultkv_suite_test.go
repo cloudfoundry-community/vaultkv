@@ -224,7 +224,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return []byte(buildVaultPath(currentVaultVersion))
 }, func(vaultPath []byte) {
 	var err error
-	var uriStr = fmt.Sprintf("https://127.0.0.1:%d", 8202+config.GinkgoConfig.ParallelNode)
+	var uriStr = fmt.Sprintf("https://127.0.0.1:%d", 8202+(config.GinkgoConfig.ParallelNode*2))
 	vaultURI, err = url.Parse(uriStr)
 	if err != nil {
 		panic(fmt.Sprintf("Could not parse Vault URI: %s", uriStr))
@@ -417,7 +417,6 @@ func StopVault() {
 	_ = <-processChan
 	processOutputWriter.Close()
 	processOutputReader.Close()
-
 	currentVaultProcess = nil
 }
 

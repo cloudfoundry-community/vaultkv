@@ -18,7 +18,6 @@ var _ = When("the vault is uninitialized", func() {
 		for _, s := range []spec{
 			spec{"Health", func() { err = vault.Health(true) }, nil},
 			spec{"EnableSecretsMount", func() { err = vault.EnableSecretsMount("beep", vaultkv.Mount{}) }, nil},
-			spec{"SealStatus", func() { _, err = vault.SealStatus() }, nil},
 			spec{"Unseal", func() { _, err = vault.Unseal("pLacEhoLdeR=") }, nil},
 			spec{"Get", func() { err = vault.Get("secret/sure/whatever", nil) }, nil},
 			spec{"Set", func() { err = vault.Set("secret/sure/whatever", map[string]string{"foo": "bar"}) }, nil},

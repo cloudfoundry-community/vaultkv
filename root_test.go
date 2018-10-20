@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("Generate Root", func() {
 	When("the vault is not initialized", func() {
-		Describe("Starting a new rekey operation", func() {
+		Describe("Starting a new generate root operation", func() {
 			JustBeforeEach(func() {
 				_, err = vault.NewGenerateRoot()
 			})
@@ -50,7 +50,7 @@ var _ = Describe("Generate Root", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Describe("Starting a new rekey operation", func() {
+			Describe("Starting a new generate root operation", func() {
 				var genRoot *vaultkv.GenerateRoot
 
 				var AssertRemaining = func(rem int) func() {
@@ -86,7 +86,7 @@ var _ = Describe("Generate Root", func() {
 						By("having the first key submission not err")
 						Expect(err).NotTo(HaveOccurred())
 
-						By("having the first key submission finish the rekey")
+						By("having the first key submission finish the generate root operation")
 						Expect(genRootDone).To(BeTrue())
 
 						By("having Remaining return zero")
@@ -121,7 +121,7 @@ var _ = Describe("Generate Root", func() {
 							By("not erroring")
 							Expect(err).NotTo(HaveOccurred())
 
-							By("saying that the rekey is done")
+							By("saying that the generate root operation is done")
 							Expect(genRootDone).To(BeTrue())
 						})
 					})
@@ -167,15 +167,15 @@ var _ = Describe("Generate Root", func() {
 						By("having Remaining return two")
 						AssertRemaining(2)()
 
-						By("cancelling the rekey not returning an error")
+						By("cancelling the generate root operation not returning an error")
 						err = genRoot.Cancel()
 						Expect(err).NotTo(HaveOccurred())
 
-						By("submitting after the rekey was cancelled returning an ErrBadRequest")
+						By("submitting after the generate root operation was cancelled returning an ErrBadRequest")
 						genRootDone, err = genRoot.Submit(initOutput.Keys[0])
 						AssertErrorOfType(&vaultkv.ErrBadRequest{})()
 
-						By("the submission after the rekey was cancelled returning that the rekey is done")
+						By("the submission after the generate root operation was cancelled returning that the operation is done")
 						Expect(genRootDone).To(BeTrue())
 
 					})
@@ -187,11 +187,11 @@ var _ = Describe("Generate Root", func() {
 								genRootDone, err = genRoot.Submit(initOutput.Keys...)
 							})
 
-							It("should rekey the vault successfully", func() {
+							It("should generate a new root token successfully", func() {
 								By("not erroring")
 								Expect(err).NotTo(HaveOccurred())
 
-								By("claiming that the rekey is done")
+								By("claiming that the generate root operation is done")
 								Expect(genRootDone).To(BeTrue())
 
 								By("having Remaining return 0")
@@ -207,8 +207,8 @@ var _ = Describe("Generate Root", func() {
 								}
 							})
 
-							It("should rekey successfully", func() {
-								By("returning that the rekey is done")
+							It("should generate a new root token successfully", func() {
+								By("returning that the generate root operation is done")
 								Expect(genRootDone).To(BeTrue())
 
 								By("having Remaining return zero")

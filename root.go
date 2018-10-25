@@ -65,8 +65,11 @@ func (v *Client) NewGenerateRoot() (*GenerateRoot, error) {
 			return nil, err
 		}
 
+		//In 0.11.2 and 0.11.3, you can't provide an empty body or else Vault EOFs.
+		// So you have to give an empty string otp to prompt Vault to make an otp
+		// of the proper length for you. This was fixed in 0.11.4.
 		err = v.doRequest("PUT", "/sys/generate-root/attempt",
-			nil, &ret.state)
+			map[string]string{"otp": ""}, &ret.state)
 		if err != nil {
 			return nil, err
 		}

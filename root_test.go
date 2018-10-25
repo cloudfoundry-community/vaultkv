@@ -117,7 +117,7 @@ var _ = Describe("Generate Root", func() {
 							genRootDone, err = genRoot.Submit(initOutput.Keys[0], "a", "b", "c")
 						})
 
-						It("should properly unseal the vault (as long as the first keys are correct)", func() {
+						It("should properly generate a new root token (as long as the first keys are correct)", func() {
 							By("not erroring")
 							Expect(err).NotTo(HaveOccurred())
 

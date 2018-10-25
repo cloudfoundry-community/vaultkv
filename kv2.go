@@ -47,7 +47,9 @@ func (c *Client) IsKVv2Mount(path string) (bool, error) {
 	return version == 2, nil
 }
 
-func splitMount(path string) (mount string, subpath string) {
+//SplitMount takes the given path and splits it into the respective mount name
+// and path under the mount and returns both parts
+func SplitMount(path string) (mount string, subpath string) {
 	path = strings.TrimLeft(path, "/")
 	splits := strings.SplitN(path, "/", 2)
 	mount = splits[0]
@@ -132,7 +134,7 @@ func (c *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 		query.Add("version", strconv.FormatUint(uint64(opts.Version), 10))
 	}
 
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
 	err = c.doRequest("GET", path, query, unmarshalInto)
 	if err != nil {
@@ -184,7 +186,7 @@ func (c *Client) V2Set(path string, values interface{}, opts *V2SetOpts) (meta V
 		Data: v2VersionAPI{},
 	}
 
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
 
 	err = c.doRequest("PUT", path, &input, &output)
@@ -207,7 +209,7 @@ type V2DeleteOpts struct {
 // data from this call is recoverable from a call to V2Undelete.
 func (c *Client) V2Delete(path string, opts *V2DeleteOpts) error {
 	method := "DELETE"
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/data%s", mount, subpath)
 
 	if opts != nil && len(opts.Versions) > 0 {
@@ -222,7 +224,7 @@ func (c *Client) V2Delete(path string, opts *V2DeleteOpts) error {
 
 //V2Undelete marks the specified versions at the specified paths as not deleted.
 func (c *Client) V2Undelete(path string, versions []uint) error {
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/undelete%s", mount, subpath)
 	return c.doRequest("POST", path, struct {
 		Versions []uint `json:"versions"`
@@ -233,7 +235,7 @@ func (c *Client) V2Undelete(path string, versions []uint) error {
 
 //V2Destroy permanently deletes the specified versions at the specified path.
 func (c *Client) V2Destroy(path string, versions []uint) error {
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/destroy%s", mount, subpath)
 	return c.doRequest("POST", path, struct {
 		Versions []uint `json:"versions"`
@@ -245,7 +247,7 @@ func (c *Client) V2Destroy(path string, versions []uint) error {
 //V2DestroyMetadata permanently destroys all secret versions and all metadata
 // associated with the secret at the specified path.
 func (c *Client) V2DestroyMetadata(path string) error {
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
 	return c.doRequest("DELETE", path, nil, nil)
 }
@@ -310,10 +312,10 @@ func (m v2MetadataAPI) Parse() V2Metadata {
 	return ret
 }
 
-//V2GetMetadata gets the metadata associatedw with the secret at the specified
+//V2GetMetadata gets the metadata associated with the secret at the specified
 // path.
 func (c *Client) V2GetMetadata(path string) (meta V2Metadata, err error) {
-	mount, subpath := splitMount(path)
+	mount, subpath := SplitMount(path)
 	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
 	output := v2MetadataAPI{}
 	err = c.doRequest("GET", path, nil, &output)

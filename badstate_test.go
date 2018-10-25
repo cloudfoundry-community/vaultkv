@@ -30,6 +30,12 @@ var _ = When("the vault is uninitialized", func() {
 			spec{"V2Destroy", func() { err = vault.V2Destroy("secret/foo", []uint{1}) }, &semver{0, 10, 0}},
 			spec{"V2DestroyMetadata", func() { err = vault.V2DestroyMetadata("secret/foo") }, &semver{0, 10, 0}},
 			spec{"V2GetMetadata", func() { _, err = vault.V2GetMetadata("secret/foo") }, &semver{0, 10, 0}},
+			spec{"KVGet", func() { _, err = vault.NewKV().Get("secret/foo", nil, nil) }, &semver{0, 10, 0}},
+			spec{"KVSet", func() { _, err = vault.NewKV().Set("secret/foo", map[string]string{"beep": "boop"}, nil) }, &semver{0, 10, 10}},
+			spec{"KVDelete", func() { err = vault.NewKV().Delete("secret/foo", nil) }, &semver{0, 10, 0}},
+			spec{"KVUndelete", func() { err = vault.NewKV().Undelete("secret/foo", []uint{1}) }, &semver{0, 10, 0}},
+			spec{"KVDestroy", func() { err = vault.NewKV().Destroy("secret/foo", []uint{1}) }, &semver{0, 10, 0}},
+			spec{"V2DestroyAll", func() { err = vault.NewKV().DestroyAll("secret/foo") }, &semver{0, 10, 0}},
 		} {
 			if s.MinVersion != nil && parseSemver(currentVaultVersion).LessThan(*s.MinVersion) {
 				continue

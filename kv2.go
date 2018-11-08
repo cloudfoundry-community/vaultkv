@@ -16,10 +16,12 @@ import (
 //the mount. If a different API error occurs, it will be propagated out.
 func (c *Client) IsKVv2Mount(path string) (bool, error) {
 	output := struct {
-		Type    string `json:"type"`
-		Options struct {
-			Version string `json:"version"`
-		} `json:"options"`
+		Data struct {
+			Type    string `json:"type"`
+			Options struct {
+				Version string `json:"version"`
+			} `json:"options"`
+		} `json:"data"`
 	}{}
 
 	err := c.doRequest(
@@ -35,11 +37,11 @@ func (c *Client) IsKVv2Mount(path string) (bool, error) {
 		return false, err
 	}
 
-	if output.Type != "kv" {
+	if output.Data.Type != "kv" {
 		return false, nil
 	}
 
-	version, err := strconv.ParseUint(output.Options.Version, 10, 64)
+	version, err := strconv.ParseUint(output.Data.Options.Version, 10, 64)
 	if err != nil {
 		return false, nil
 	}

@@ -147,6 +147,31 @@ func (c *Client) V2Get(path string, output interface{}, opts *V2GetOpts) (meta V
 	return
 }
 
+//V2List returns the list of paths nested directly under the given path. If this
+//is not a "directory" for any paths, then ErrNotFound is returned. In the list
+//of paths returned on success, if a path ends with a slash, then it is also a
+//"directory". The Vault must be unsealed and initialized for this endpoint to
+//work. No assumptions are made about the mounting point of your Key/Value
+//backend.
+func (v *Client) V2List(path string) ([]string, error) {
+	ret := []string{}
+	mount, subpath := SplitMount(path)
+	path = fmt.Sprintf("%s/metadata%s", mount, subpath)
+
+	err := v.doRequest("LIST", path, nil, &vaultResponse{
+		Data: &struct {
+			Keys *[]string `json:"keys"`
+		}{
+			Keys: &ret,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, err
+}
+
 //V2SetOpts are options that can be specified to a V2Set call
 type V2SetOpts struct {
 	//CAS provides a check-and-set version number. If this is set to zero, then

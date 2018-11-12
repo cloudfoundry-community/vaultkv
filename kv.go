@@ -16,6 +16,7 @@ type KV struct {
 type kvMount interface {
 	Get(path string, output interface{}, opts *KVGetOpts) (meta KVVersion, err error)
 	Set(path string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error)
+	List(path string) (paths []string, err error)
 	Delete(path string, opts *KVDeleteOpts) (err error)
 	Undelete(path string, versions []uint) (err error)
 	Destroy(path string, versions []uint) (err error)
@@ -42,6 +43,10 @@ func (k kvv1Mount) Get(path string, output interface{}, opts *KVGetOpts) (meta K
 		meta.Version = 1
 	}
 	return
+}
+
+func (k kvv1Mount) List(path string) (paths []string, err error) {
+	return k.client.List(path)
 }
 
 func (k kvv1Mount) Set(path string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
@@ -123,6 +128,10 @@ func (k kvv2Mount) Get(path string, output interface{}, opts *KVGetOpts) (meta K
 		meta.Version = m.Version
 	}
 	return
+}
+
+func (k kvv2Mount) List(path string) (paths []string, err error) {
+	return k.client.V2List(path)
 }
 
 func (k kvv2Mount) Set(path string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
@@ -219,8 +228,9 @@ type KVVersion struct {
 	Destroyed bool
 }
 
-//Get retrieves the value at the given path in the tree. This follows the semantics of Client.Get
-// or Client.V2Get, chosen based on the backend mounted at the path given.
+//Get retrieves the value at the given path in the tree. This follows the
+//semantics of Client.Get or Client.V2Get, chosen based on the backend mounted
+//at the path given.
 func (k *KV) Get(path string, output interface{}, opts *KVGetOpts) (meta KVVersion, err error) {
 	mount, err := k.mountForPath(path)
 	if err != nil {
@@ -230,13 +240,25 @@ func (k *KV) Get(path string, output interface{}, opts *KVGetOpts) (meta KVVersi
 	return mount.Get(path, output, opts)
 }
 
+//List retrieves the paths under the given path. If the path does not exist or
+//it is not a folder, ErrNotFound is thrown. Results ending with a slash are
+//folders.
+func (k *KV) List(path string) (paths []string, err error) {
+	mount, err := k.mountForPath(path)
+	if err != nil {
+		return
+	}
+
+	return mount.List(path)
+}
+
 //KVSetOpts are the options for a set call to the KV.Set() call. Currently there
 // are none, but it exists in case the API adds support in the future for things
 // that we can put here.
 type KVSetOpts struct{}
 
-//Set puts the values given at the path given. If KV v1, the previous value, if any, is overwritten.
-// If KV v2, a new version is created.
+//Set puts the values given at the path given. If KV v1, the previous value, if
+//any, is overwritten.  If KV v2, a new version is created.
 func (k *KV) Set(path string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
 	mount, err := k.mountForPath(path)
 	if err != nil {

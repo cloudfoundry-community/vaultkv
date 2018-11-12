@@ -123,6 +123,38 @@ var _ = Describe("KVv2", func() {
 					By("returning the same values that were set")
 					Expect(testGetOutput).To(Equal(testSetValues))
 				})
+
+				Describe("V2List", func() {
+					var testListPath string
+					var testListOutput []string
+					JustBeforeEach(func() {
+						testListOutput, err = vault.V2List(testListPath)
+					})
+
+					When("the path exists", func() {
+						BeforeEach(func() {
+							_, err = vault.V2Set(fmt.Sprintf("%s/foo/bar", testMountName), testSetValues, nil)
+							Expect(err).NotTo(HaveOccurred())
+							testListPath = testMountName
+						})
+
+						It("should list the keys", func() {
+							By("not erroring")
+							Expect(err).NotTo(HaveOccurred())
+
+							By("returning the expected keys")
+							Expect(testListOutput).To(Equal([]string{"boop", "foo/"}))
+						})
+					})
+
+					When("the path does not exist", func() {
+						BeforeEach(func() {
+							testListPath = fmt.Sprintf("%s/this/shouldnt/exist", testMountName)
+						})
+
+						It("should return ErrNotFound", AssertErrorOfType(&vaultkv.ErrNotFound{}))
+					})
+				})
 			})
 
 			Describe("V2Delete", func() {

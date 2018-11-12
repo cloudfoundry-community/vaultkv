@@ -8,7 +8,7 @@ package vaultkv
 // See the documentation around those functions for more details.
 // An empty KV struct is not request-ready. Please call Client.NewKV instead.
 type KV struct {
-	client *Client
+	Client *Client
 	//Map from mount name to [true if version 2. False otherwise]
 	mounts map[string]kvMount
 }
@@ -189,7 +189,7 @@ func (k kvv2Mount) MountVersion() (version uint) {
 
 //NewKV returns an initialized KV object.
 func (v *Client) NewKV() *KV {
-	return &KV{client: v, mounts: map[string]kvMount{}}
+	return &KV{Client: v, mounts: map[string]kvMount{}}
 }
 
 func (k *KV) mountForPath(path string) (ret kvMount, err error) {
@@ -199,14 +199,14 @@ func (k *KV) mountForPath(path string) (ret kvMount, err error) {
 		return
 	}
 
-	isV2, err := k.client.IsKVv2Mount(mount)
+	isV2, err := k.Client.IsKVv2Mount(mount)
 	if err != nil {
 		return
 	}
 
-	ret = kvv1Mount{k.client}
+	ret = kvv1Mount{k.Client}
 	if isV2 {
-		ret = kvv2Mount{k.client}
+		ret = kvv2Mount{k.Client}
 	}
 
 	k.mounts[mount] = ret

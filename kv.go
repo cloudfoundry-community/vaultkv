@@ -204,6 +204,13 @@ func (k *KV) mountForPath(path string) (ret kvMount, err error) {
 		return
 	}
 
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	ret, found = k.mounts[mount]
+	if found {
+		return
+	}
+
 	isV2, err := k.Client.IsKVv2Mount(mount)
 	if err != nil {
 		return
@@ -214,9 +221,7 @@ func (k *KV) mountForPath(path string) (ret kvMount, err error) {
 		ret = kvv2Mount{k.Client}
 	}
 
-	k.lock.Lock()
 	k.mounts[mount] = ret
-	k.lock.Unlock()
 
 	return
 }

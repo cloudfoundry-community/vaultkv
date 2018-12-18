@@ -255,13 +255,15 @@ var _ = Describe("KV", func() {
 		//There are some things that we cannot make exactly the same between kv v1 and v2. We test those things here.
 		Describe("v1 specific", func() {
 			Describe("isKVv2Mount", func() {
+				var mountName string
 				var isV2 bool
 				JustBeforeEach(func() {
-					isV2, err = vault.IsKVv2Mount(testMountName)
+					mountName, isV2, err = vault.IsKVv2Mount(testMountName)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should return false", func() {
+				It("should return the mount name and that it is not a v2 mount", func() {
+					Expect(mountName).To(BeEquivalentTo(testMountName))
 					Expect(isV2).To(BeFalse())
 				})
 			})
@@ -362,13 +364,15 @@ var _ = Describe("KV", func() {
 
 		Describe("KV v2 specific", func() {
 			Describe("isKVv2Mount", func() {
+				var mountName string
 				var isV2 bool
 				JustBeforeEach(func() {
-					isV2, err = vault.IsKVv2Mount(testMountName)
+					mountName, isV2, err = vault.IsKVv2Mount(testMountName)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				Specify("should return true", func() {
+				Specify("should return the mount name and that it is a v2 mount", func() {
+					Expect(mountName).To(BeEquivalentTo(testMountName))
 					Expect(isV2).To(BeTrue())
 				})
 			})

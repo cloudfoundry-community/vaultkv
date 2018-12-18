@@ -2,6 +2,7 @@ package vaultkv_test
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry-community/vaultkv"
@@ -10,7 +11,7 @@ import (
 )
 
 var _ = Describe("KVv2", func() {
-	const testMountName = "beep"
+	const testMountName = "beep/bada/boop"
 	BeforeEach(func() {
 		if parseSemver(currentVaultVersion).LessThan(semver{0, 10, 0}) {
 			Skip("This version of Vault does not support KVv2")
@@ -25,6 +26,16 @@ var _ = Describe("KVv2", func() {
 		}
 	})
 
+	path := func(mount, path string) (subpath string) {
+		mount = strings.Trim(mount, "/")
+		path = strings.Trim(path, "/")
+		if mount == path {
+			return ""
+		}
+		ret := strings.TrimPrefix(path, fmt.Sprintf("%s/", mount))
+		return ret
+	}
+
 	Describe("V2Set", func() {
 		var testSetPath string
 		var testSetValues map[string]interface{}
@@ -35,7 +46,7 @@ var _ = Describe("KVv2", func() {
 		})
 
 		JustBeforeEach(func() {
-			testVersionOutput, err = vault.V2Set(testSetPath, testSetValues, testSetOptions)
+			testVersionOutput, err = vault.V2Set(testMountName, path(testMountName, testSetPath), testSetValues, testSetOptions)
 		})
 
 		AfterEach(func() {
@@ -62,7 +73,7 @@ var _ = Describe("KVv2", func() {
 					var testGetOutput *map[string]interface{}
 					JustBeforeEach(func() {
 						testGetOutput = &map[string]interface{}{}
-						_, err = vault.V2Get(testSetPath, &testGetOutput, nil)
+						_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), &testGetOutput, nil)
 					})
 
 					It("should populate the pointer properly", func() {
@@ -78,7 +89,7 @@ var _ = Describe("KVv2", func() {
 					var testGetOutput map[string]interface{}
 					JustBeforeEach(func() {
 						testGetOutput = map[string]interface{}{}
-						_, err = vault.V2Get(testSetPath, &testGetOutput, nil)
+						_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), &testGetOutput, nil)
 					})
 
 					It("should populate the map properly", func() {
@@ -110,7 +121,7 @@ var _ = Describe("KVv2", func() {
 				var testGetVersionOutput vaultkv.V2Version
 				JustBeforeEach(func() {
 					testGetOutput = map[string]interface{}{}
-					testGetVersionOutput, err = vault.V2Get(testSetPath, &testGetOutput, nil)
+					testGetVersionOutput, err = vault.V2Get(testMountName, path(testMountName, testSetPath), &testGetOutput, nil)
 				})
 
 				It("should get the undeleted key", func() {
@@ -128,12 +139,12 @@ var _ = Describe("KVv2", func() {
 					var testListPath string
 					var testListOutput []string
 					JustBeforeEach(func() {
-						testListOutput, err = vault.V2List(testListPath)
+						testListOutput, err = vault.V2List(testMountName, path(testMountName, testListPath))
 					})
 
 					When("the path exists", func() {
 						BeforeEach(func() {
-							_, err = vault.V2Set(fmt.Sprintf("%s/foo/bar", testMountName), testSetValues, nil)
+							_, err = vault.V2Set(testMountName, "foo/bar", testSetValues, nil)
 							Expect(err).NotTo(HaveOccurred())
 							testListPath = testMountName
 						})
@@ -160,7 +171,7 @@ var _ = Describe("KVv2", func() {
 			Describe("V2Delete", func() {
 				var testDeleteOptions *vaultkv.V2DeleteOpts
 				JustBeforeEach(func() {
-					err = vault.V2Delete(testSetPath, testDeleteOptions)
+					err = vault.V2Delete(testMountName, path(testMountName, testSetPath), testDeleteOptions)
 				})
 				Context("Not specifying a version to delete", func() {
 					BeforeEach(func() {
@@ -171,7 +182,7 @@ var _ = Describe("KVv2", func() {
 
 					Describe("V2Get", func() {
 						JustBeforeEach(func() {
-							_, err = vault.V2Get(testSetPath, nil, nil)
+							_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), nil, nil)
 						})
 
 						It("should return ErrNotFound", AssertErrorOfType(&vaultkv.ErrNotFound{}))
@@ -180,7 +191,7 @@ var _ = Describe("KVv2", func() {
 					Describe("V2GetMetadata", func() {
 						var testMetadataOutput vaultkv.V2Metadata
 						JustBeforeEach(func() {
-							testMetadataOutput, err = vault.V2GetMetadata(testSetPath)
+							testMetadataOutput, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 						})
 
 						It("should return metadata reflecting the delete", func() {
@@ -213,7 +224,7 @@ var _ = Describe("KVv2", func() {
 
 					Describe("V2Undelete", func() {
 						JustBeforeEach(func() {
-							err = vault.V2Undelete(testSetPath, []uint{testVersionOutput.Version})
+							err = vault.V2Undelete(testMountName, path(testMountName, testSetPath), []uint{testVersionOutput.Version})
 						})
 
 						It("should undelete the key", func() {
@@ -223,7 +234,7 @@ var _ = Describe("KVv2", func() {
 							By("V2Get finding the undeleted key")
 							testGetOutput := map[string]interface{}{}
 							var testGetVersionOutput vaultkv.V2Version
-							testGetVersionOutput, err = vault.V2Get(testSetPath, &testGetOutput, nil)
+							testGetVersionOutput, err = vault.V2Get(testMountName, path(testMountName, testSetPath), &testGetOutput, nil)
 							Expect(err).NotTo(HaveOccurred())
 
 							By("V2Get returning the V2Set's original version info")
@@ -236,7 +247,7 @@ var _ = Describe("KVv2", func() {
 						Describe("V2GetMetadata", func() {
 							var testMetadataOutput vaultkv.V2Metadata
 							JustBeforeEach(func() {
-								testMetadataOutput, err = vault.V2GetMetadata(testSetPath)
+								testMetadataOutput, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 							})
 
 							It("should return metadata reflecting the undelete", func() {
@@ -280,13 +291,13 @@ var _ = Describe("KVv2", func() {
 							Expect(err).NotTo(HaveOccurred())
 
 							By("V2Get being unable to find it")
-							_, err = vault.V2Get(testSetPath, nil, nil)
+							_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), nil, nil)
 							AssertErrorOfType(&vaultkv.ErrNotFound{})()
 						})
 
 						Context("and then deleting it again", func() {
 							JustBeforeEach(func() {
-								err = vault.V2Delete(testSetPath, testDeleteOptions)
+								err = vault.V2Delete(testMountName, path(testMountName, testSetPath), testDeleteOptions)
 							})
 
 							It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
@@ -308,7 +319,7 @@ var _ = Describe("KVv2", func() {
 			Describe("V2Destroy", func() {
 				When("the version exists and it is the only version", func() {
 					JustBeforeEach(func() {
-						err = vault.V2Destroy(testSetPath, []uint{1})
+						err = vault.V2Destroy(testMountName, path(testMountName, testSetPath), []uint{1})
 					})
 
 					It("should delete the metadata", func() {
@@ -316,18 +327,18 @@ var _ = Describe("KVv2", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						By("V2Get being unable to find the key")
-						_, err = vault.V2Get(testSetPath, nil, nil)
+						_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), nil, nil)
 						AssertErrorOfType(&vaultkv.ErrNotFound{})
 
 						By("V2GetMetadata being unable to find the key")
-						_, err = vault.V2GetMetadata(testSetPath)
+						_, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 						AssertErrorOfType(&vaultkv.ErrNotFound{})
 					})
 				})
 
 				When("the version does not exist", func() {
 					JustBeforeEach(func() {
-						err = vault.V2Destroy(testSetPath, []uint{12})
+						err = vault.V2Destroy(testMountName, path(testMountName, testSetPath), []uint{12})
 					})
 
 					It("should not delete anything", func() {
@@ -335,12 +346,12 @@ var _ = Describe("KVv2", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						By("V2Get being able to find the key")
-						_, err = vault.V2Get(testSetPath, nil, nil)
+						_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						By("V2GetMetadata being able to find the key")
 						var meta vaultkv.V2Metadata
-						meta, err = vault.V2GetMetadata(testSetPath)
+						meta, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 						Expect(err).NotTo(HaveOccurred())
 
 						By("V2GetMetadata reporting that version 1 still exists")
@@ -351,7 +362,7 @@ var _ = Describe("KVv2", func() {
 
 				When("the path does not exist", func() {
 					JustBeforeEach(func() {
-						err = vault.V2Destroy(testSetPath+"abcd", []uint{12})
+						err = vault.V2Destroy(testMountName, path(testMountName, testSetPath+"abcd"), []uint{12})
 					})
 
 					It("should not err", func() { Expect(err).NotTo(HaveOccurred()) })
@@ -360,7 +371,7 @@ var _ = Describe("KVv2", func() {
 
 			Describe("V2DestroyMetadata", func() {
 				JustBeforeEach(func() {
-					err = vault.V2DestroyMetadata(testSetPath)
+					err = vault.V2DestroyMetadata(testMountName, path(testMountName, testSetPath))
 				})
 
 				It("should delete the metadata", func() {
@@ -368,11 +379,11 @@ var _ = Describe("KVv2", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("V2Get being unable to find the key")
-					_, err = vault.V2Get(testSetPath, nil, nil)
+					_, err = vault.V2Get(testMountName, path(testMountName, testSetPath), nil, nil)
 					AssertErrorOfType(&vaultkv.ErrNotFound{})
 
 					By("V2GetMetadata being unable to find the key")
-					_, err = vault.V2GetMetadata(testSetPath)
+					_, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 					AssertErrorOfType(&vaultkv.ErrNotFound{})
 				})
 			})
@@ -383,7 +394,7 @@ var _ = Describe("KVv2", func() {
 					testSet2Values = map[string]interface{}{"wee": "woo"}
 				})
 				JustBeforeEach(func() {
-					testVersionOutput, err = vault.V2Set(testSetPath, testSet2Values, nil)
+					testVersionOutput, err = vault.V2Set(testMountName, path(testMountName, testSetPath), testSet2Values, nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -393,7 +404,7 @@ var _ = Describe("KVv2", func() {
 					var testGet2Version vaultkv.V2Version
 					JustBeforeEach(func() {
 						testGet2Output = map[string]interface{}{}
-						testGet2Version, err = vault.V2Get(testSetPath, &testGet2Output, testGet2Options)
+						testGet2Version, err = vault.V2Get(testMountName, path(testMountName, testSetPath), &testGet2Output, testGet2Options)
 					})
 
 					When("there are no options specified", func() {
@@ -460,7 +471,7 @@ var _ = Describe("KVv2", func() {
 				Describe("V2Delete", func() {
 					var testDeleteOpts *vaultkv.V2DeleteOpts
 					JustBeforeEach(func() {
-						vault.V2Delete(testSetPath, testDeleteOpts)
+						vault.V2Delete(testMountName, path(testMountName, testSetPath), testDeleteOpts)
 					})
 
 					AfterEach(func() {
@@ -480,7 +491,7 @@ var _ = Describe("KVv2", func() {
 
 							By("V2GetMetadata returning that the first version has a deletion time")
 							var meta vaultkv.V2Metadata
-							meta, err = vault.V2GetMetadata(testSetPath)
+							meta, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 							Expect(err).NotTo(HaveOccurred())
 
 							var v1 vaultkv.V2Version
@@ -509,7 +520,7 @@ var _ = Describe("KVv2", func() {
 
 						Specify("CurrentVersion should be 2", func() {
 							var meta vaultkv.V2Metadata
-							meta, err = vault.V2GetMetadata(testSetPath)
+							meta, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
 						})
@@ -519,7 +530,7 @@ var _ = Describe("KVv2", func() {
 				Describe("V2Undelete", func() {
 					var versionsToUndelete []uint
 					JustBeforeEach(func() {
-						err = vault.V2Undelete(testSetPath, versionsToUndelete)
+						err = vault.V2Undelete(testMountName, path(testMountName, testSetPath), versionsToUndelete)
 					})
 
 					Context("When the version is not deleted", func() {
@@ -542,7 +553,7 @@ var _ = Describe("KVv2", func() {
 				Describe("V2Destroy", func() {
 					var versionsToDestroy []uint
 					JustBeforeEach(func() {
-						err = vault.V2Destroy(testSetPath, versionsToDestroy)
+						err = vault.V2Destroy(testMountName, path(testMountName, testSetPath), versionsToDestroy)
 					})
 
 					Context("On one of the existing versions", func() {
@@ -556,7 +567,7 @@ var _ = Describe("KVv2", func() {
 
 							By("V2GetMetadata returning metadata for both the deleted and non-deleted versions")
 							var meta vaultkv.V2Metadata
-							meta, err = vault.V2GetMetadata(testSetPath)
+							meta, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.Versions).To(HaveLen(2))
 
@@ -583,7 +594,7 @@ var _ = Describe("KVv2", func() {
 
 						Specify("CurrentVersion should be 2", func() {
 							var meta vaultkv.V2Metadata
-							meta, err = vault.V2GetMetadata(testSetPath)
+							meta, err = vault.V2GetMetadata(testMountName, path(testMountName, testSetPath))
 							Expect(err).NotTo(HaveOccurred())
 							Expect(meta.CurrentVersion).To(BeEquivalentTo(2))
 						})
@@ -609,7 +620,7 @@ var _ = Describe("KVv2", func() {
 			Context("and the key already exists", func() {
 				BeforeEach(func() {
 					var meta vaultkv.V2Version
-					meta, err = vault.V2Set(testSetPath, testSetValues, nil)
+					meta, err = vault.V2Set(testMountName, path(testMountName, testSetPath), testSetValues, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(meta.Version).To(BeEquivalentTo(1))
 				})

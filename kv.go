@@ -39,10 +39,14 @@ type kvv1Mount struct {
 	client *Client
 }
 
-func v1ConstructPath(mount, subpath string) string {
+func v1ConstructPath(mount, path string) string {
 	mount = strings.Trim(mount, "/")
-	subpath = strings.Trim(subpath, "/")
-	return fmt.Sprintf("%s/%s", mount, subpath)
+	path = strings.Trim(path, "/")
+	if mount == path {
+		return mount
+	}
+
+	return fmt.Sprintf("%s/%s", mount, strings.Trim(strings.TrimPrefix(path, mount), "/"))
 }
 
 func (k kvv1Mount) Get(mount, subpath string, output interface{}, opts *KVGetOpts) (meta KVVersion, err error) {

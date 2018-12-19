@@ -10,7 +10,7 @@ import (
 )
 
 var _ = Describe("KV", func() {
-	const testMountName = "testmount"
+	const testMountName = "zip/zop/zoobity/bop"
 	var testkv *vaultkv.KV
 	BeforeEach(func() {
 		InitAndUnsealVault()

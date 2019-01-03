@@ -19,6 +19,21 @@ var _ = Describe("KV", func() {
 	})
 
 	unityTests := func() {
+		Describe("MountPath", func() {
+			var mountOutput string
+			JustBeforeEach(func() {
+				mountOutput, err = testkv.MountPath(fmt.Sprintf("%s/boop", testMountName))
+			})
+
+			It("should return the proper mount name", func() {
+				By("not returning an error")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("having the returned mount name be the same as the created mount's name")
+				Expect(mountOutput).To(BeEquivalentTo(testMountName))
+			})
+		})
+
 		Describe("Set", func() {
 			var testSetPath string
 			var testSetValues map[string]string

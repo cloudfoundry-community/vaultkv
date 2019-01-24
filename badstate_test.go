@@ -147,7 +147,7 @@ var _ = When("the vault is initialized", func() {
 						spec{"V2GetMetadata", func() { _, err = vault.V2GetMetadata("secret", "foo") }, &semver{0, 10, 0}},
 						spec{"KVGet", func() { _, err = vault.NewKV().Get("secret/foo", nil, nil) }, &semver{0, 10, 0}},
 						spec{"KVSet", func() { _, err = vault.NewKV().Set("secret/foo", map[string]string{"beep": "boop"}, nil) }, &semver{0, 10, 10}},
-						spec{"KVDelete", func() { err = vault.NewKV().Delete("secret/foo", nil) }, &semver{0, 10, 0}},
+						spec{"KVDelete", func() { err = vault.NewKV().Delete("secret/foo", &vaultkv.KVDeleteOpts{V1Destroy: true}) }, &semver{0, 10, 0}},
 						spec{"KVUndelete", func() { err = vault.NewKV().Undelete("secret/foo", []uint{1}) }, &semver{0, 10, 0}},
 						spec{"KVDestroy", func() { err = vault.NewKV().Destroy("secret/foo", []uint{1}) }, &semver{0, 10, 0}},
 						spec{"KVDestroyAll", func() { err = vault.NewKV().DestroyAll("secret/foo") }, &semver{0, 10, 0}},
@@ -155,7 +155,8 @@ var _ = When("the vault is initialized", func() {
 						(s.Setup)()
 						Expect(err).To(HaveOccurred(),
 							fmt.Sprintf("`%s' did not produce an error", s.Name))
-						Expect(vaultkv.IsForbidden(err)).To(BeTrue())
+						Expect(vaultkv.IsForbidden(err)).To(BeTrue(),
+							fmt.Sprintf("`%s' did not give a 403 - gave %s", s.Name, err))
 					}
 				})
 			})

@@ -451,4 +451,10 @@ func InitAndUnsealVault() {
 
 	_, err = vault.Unseal(initOut.Keys[0])
 	Expect(err).NotTo(HaveOccurred())
+
+	err = vault.DisableSecretsMount("secret")
+	Expect(err).NotTo(HaveOccurred())
+
+	err = vault.EnableSecretsMount("secret", vaultkv.Mount{Type: "kv"})
+	Expect(err).NotTo(HaveOccurred())
 }

@@ -206,7 +206,7 @@ func (v *Client) Health(standbyok bool) error {
 	}
 	query.Add("standbyok", boolStr)
 
-	resp, err := v.Curl("GET", "/v1/sys/health", query, nil)
+	resp, err := v.Curl("GET", "/sys/health", query, nil)
 
 	errorsStruct := apiError{}
 	json.NewDecoder(resp.Body).Decode(&errorsStruct)

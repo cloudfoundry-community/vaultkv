@@ -200,11 +200,9 @@ func (v *Client) ResetUnseal() (err error) {
 func (v *Client) Health(standbyok bool) error {
 	//Don't call doRequest from Health because ParseError calls Health
 	query := url.Values{}
-	boolStr := "false"
-	if standbyok == true {
-		boolStr = "true"
+	if standbyok {
+		query.Add("standbyok", "true")
 	}
-	query.Add("standbyok", boolStr)
 
 	resp, err := v.Curl("GET", "/sys/health", query, nil)
 

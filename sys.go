@@ -3,7 +3,6 @@ package vaultkv
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -206,19 +205,8 @@ func (v *Client) Health(standbyok bool) error {
 		boolStr = "true"
 	}
 	query.Add("standbyok", boolStr)
-	u := *v.VaultURL
-	u.Path = "/v1/sys/health"
-	u.RawQuery = query.Encode()
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return err
-	}
 
-	req.Header.Add("X-Vault-Token", v.AuthToken)
-	resp, err := v.Client.Do(req)
-	if err != nil {
-		return &ErrTransport{message: err.Error()}
-	}
+	resp, err := v.Curl("GET", "/v1/sys/health", query, nil)
 
 	errorsStruct := apiError{}
 	json.NewDecoder(resp.Body).Decode(&errorsStruct)

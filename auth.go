@@ -152,7 +152,7 @@ type TokenInfo struct {
 type tokenInfoRaw struct {
 	Accessor       string   `json:"accessor"`
 	CreationTime   int64    `json:"creation_time"`
-	CreationTTL    int64    `json: "creation_ttl"`
+	CreationTTL    int64    `json:"creation_ttl"`
 	DisplayName    string   `json:"display_name"`
 	EntityID       string   `json:"entity_id"`
 	ExpireTime     string   `json:"expire_time"`

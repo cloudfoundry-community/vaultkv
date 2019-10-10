@@ -206,21 +206,23 @@ type TokenInfo struct {
 }
 
 type tokenInfoRaw struct {
-	Accessor       string   `json:"accessor"`
-	CreationTime   int64    `json:"creation_time"`
-	CreationTTL    int64    `json:"creation_ttl"`
-	DisplayName    string   `json:"display_name"`
-	EntityID       string   `json:"entity_id"`
-	ExpireTime     string   `json:"expire_time"`
-	ExplicitMaxTTL int64    `json:"explicit_max_ttl"`
-	ID             string   `json:"id"`
-	IssueTime      string   `json:"issue_time"`
-	NumUses        int64    `json:"num_uses"`
-	Orphan         bool     `json:"orphan"`
-	Path           string   `json:"path"`
-	Policies       []string `json:"policies"`
-	Renewable      bool     `json:"renewable"`
-	TTL            int64    `json:"ttl"`
+	Data struct {
+		Accessor       string   `json:"accessor"`
+		CreationTime   int64    `json:"creation_time"`
+		CreationTTL    int64    `json:"creation_ttl"`
+		DisplayName    string   `json:"display_name"`
+		EntityID       string   `json:"entity_id"`
+		ExpireTime     string   `json:"expire_time"`
+		ExplicitMaxTTL int64    `json:"explicit_max_ttl"`
+		ID             string   `json:"id"`
+		IssueTime      string   `json:"issue_time"`
+		NumUses        int64    `json:"num_uses"`
+		Orphan         bool     `json:"orphan"`
+		Path           string   `json:"path"`
+		Policies       []string `json:"policies"`
+		Renewable      bool     `json:"renewable"`
+		TTL            int64    `json:"ttl"`
+	} `json:"data"`
 }
 
 //TokenInfoSelf returns the contents of the token self info endpoint of the vault
@@ -232,36 +234,36 @@ func (v *Client) TokenInfoSelf() (ret *TokenInfo, err error) {
 	}
 
 	var expTime, issTime time.Time
-	if raw.ExpireTime != "" {
-		expTime, err = time.Parse(time.RFC3339Nano, raw.ExpireTime)
+	if raw.Data.ExpireTime != "" {
+		expTime, err = time.Parse(time.RFC3339Nano, raw.Data.ExpireTime)
 		if err != nil {
 			return
 		}
 	}
 
-	if raw.IssueTime != "" {
-		issTime, err = time.Parse(time.RFC3339Nano, raw.IssueTime)
+	if raw.Data.IssueTime != "" {
+		issTime, err = time.Parse(time.RFC3339Nano, raw.Data.IssueTime)
 		if err != nil {
 			return
 		}
 	}
 
 	ret = &TokenInfo{
-		Accessor:       raw.Accessor,
-		CreationTime:   time.Unix(raw.CreationTime, 0),
-		CreationTTL:    time.Duration(raw.CreationTTL) * time.Second,
-		DisplayName:    raw.DisplayName,
-		EntityID:       raw.EntityID,
+		Accessor:       raw.Data.Accessor,
+		CreationTime:   time.Unix(raw.Data.CreationTime, 0),
+		CreationTTL:    time.Duration(raw.Data.CreationTTL) * time.Second,
+		DisplayName:    raw.Data.DisplayName,
+		EntityID:       raw.Data.EntityID,
 		ExpireTime:     expTime,
-		ExplicitMaxTTL: time.Duration(raw.ExplicitMaxTTL) * time.Second,
-		ID:             raw.ID,
+		ExplicitMaxTTL: time.Duration(raw.Data.ExplicitMaxTTL) * time.Second,
+		ID:             raw.Data.ID,
 		IssueTime:      issTime,
-		NumUses:        raw.NumUses,
-		Orphan:         raw.Orphan,
-		Path:           raw.Path,
-		Policies:       raw.Policies,
-		Renewable:      raw.Renewable,
-		TTL:            time.Duration(raw.TTL) * time.Second,
+		NumUses:        raw.Data.NumUses,
+		Orphan:         raw.Data.Orphan,
+		Path:           raw.Data.Path,
+		Policies:       raw.Data.Policies,
+		Renewable:      raw.Data.Renewable,
+		TTL:            time.Duration(raw.Data.TTL) * time.Second,
 	}
 
 	return

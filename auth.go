@@ -231,14 +231,19 @@ func (v *Client) TokenInfoSelf() (ret *TokenInfo, err error) {
 		return
 	}
 
-	expTime, err := time.Parse(time.RFC3339Nano, raw.ExpireTime)
-	if err != nil {
-		return
+	var expTime, issTime time.Time
+	if raw.ExpireTime != "" {
+		expTime, err = time.Parse(time.RFC3339Nano, raw.ExpireTime)
+		if err != nil {
+			return
+		}
 	}
 
-	issTime, err := time.Parse(time.RFC3339Nano, raw.IssueTime)
-	if err != nil {
-		return
+	if raw.IssueTime != "" {
+		issTime, err = time.Parse(time.RFC3339Nano, raw.IssueTime)
+		if err != nil {
+			return
+		}
 	}
 
 	ret = &TokenInfo{

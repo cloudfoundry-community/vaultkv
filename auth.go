@@ -100,6 +100,28 @@ func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err e
 	return
 }
 
+func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err error) {
+	ret = &AuthOutput{}
+	err = v.doRequest(
+		"POST",
+		"/auth/approle/login",
+		struct {
+			RoleID   string `json:"role_id"`
+			SecretID string `json:"secret_id"`
+		}{
+			RoleID:   roleID,
+			SecretID: secretID,
+		},
+		&ret,
+	)
+
+	if err == nil {
+		v.AuthToken = ret.Auth.ClientToken
+	}
+
+	return
+}
+
 //TokenRenewSelf takes the token in the Client object and attempts to renew its
 // lease.
 func (v *Client) TokenRenewSelf() (err error) {

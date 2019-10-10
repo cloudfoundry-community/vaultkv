@@ -1,6 +1,9 @@
 package vaultkv
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 //AuthOutput is the general structure as returned by AuthX functions. The
 //Metadata member type is determined by the specific Auth function. Note that
@@ -126,6 +129,81 @@ func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err erro
 // lease.
 func (v *Client) TokenRenewSelf() (err error) {
 	return v.doRequest("POST", "/auth/token/renew-self", nil, nil)
+}
+
+type TokenInfo struct {
+	Accessor       string
+	CreationTime   time.Time
+	CreationTTL    time.Duration
+	DisplayName    string
+	EntityID       string
+	ExpireTime     time.Time
+	ExplicitMaxTTL time.Duration
+	ID             string
+	IssueTime      time.Time
+	NumUses        int64
+	Orphan         bool
+	Path           string
+	Policies       []string
+	Renewable      bool
+	TTL            time.Duration
+}
+
+type tokenInfoRaw struct {
+	Accessor       string   `json:"accessor"`
+	CreationTime   int64    `json:"creation_time"`
+	CreationTTL    int64    `json: "creation_ttl"`
+	DisplayName    string   `json:"display_name"`
+	EntityID       string   `json:"entity_id"`
+	ExpireTime     string   `json:"expire_time"`
+	ExplicitMaxTTL int64    `json:"explicit_max_ttl"`
+	ID             string   `json:"id"`
+	IssueTime      string   `json:"issue_time"`
+	NumUses        int64    `json:"num_uses"`
+	Orphan         bool     `json:"orphan"`
+	Path           string   `json:"path"`
+	Policies       []string `json:"policies"`
+	Renewable      bool     `json:"renewable"`
+	TTL            int64    `json:"ttl"`
+}
+
+//TokenInfoSelf returns the contents of the token self info endpoint of the vault
+func (v *Client) TokenInfoSelf() (ret *TokenInfo, err error) {
+	raw := tokenInfoRaw{}
+	err = v.doRequest("GET", "/auth/token/lookup-self", nil, &raw)
+	if err != nil {
+		return
+	}
+
+	expTime, err := time.Parse(time.RFC3339Nano, raw.ExpireTime)
+	if err != nil {
+		return
+	}
+
+	issTime, err := time.Parse(time.RFC3339Nano, raw.IssueTime)
+	if err != nil {
+		return
+	}
+
+	ret = &TokenInfo{
+		Accessor:       raw.Accessor,
+		CreationTime:   time.Unix(raw.CreationTime, 0),
+		CreationTTL:    time.Duration(raw.CreationTTL) * time.Second,
+		DisplayName:    raw.DisplayName,
+		EntityID:       raw.EntityID,
+		ExpireTime:     expTime,
+		ExplicitMaxTTL: time.Duration(raw.ExplicitMaxTTL) * time.Second,
+		ID:             raw.ID,
+		IssueTime:      issTime,
+		NumUses:        raw.NumUses,
+		Orphan:         raw.Orphan,
+		Path:           raw.Path,
+		Policies:       raw.Policies,
+		Renewable:      raw.Renewable,
+		TTL:            time.Duration(raw.TTL) * time.Second,
+	}
+
+	return
 }
 
 //TokenIsValid returns no error if it can look itself up. This can error

@@ -145,7 +145,7 @@ func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err e
 		struct {
 			Password string `json:"password"`
 		}{Password: password},
-		&ret,
+		&raw,
 	)
 	if err != nil {
 		return
@@ -169,7 +169,7 @@ func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err erro
 			RoleID:   roleID,
 			SecretID: secretID,
 		},
-		&ret,
+		&raw,
 	)
 	if err != nil {
 		return

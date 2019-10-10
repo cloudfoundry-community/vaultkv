@@ -1,6 +1,7 @@
 package vaultkv
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -10,16 +11,64 @@ import (
 //the Vault must be initialized and unsealed in order to use authentication
 //endpoints.
 type AuthOutput struct {
-	LeaseID       string `json:"lease_id"`
-	Renewable     bool   `json:"renewable"`
-	LeaseDuration int    `json:"lease_duration"`
-	Auth          struct {
-		ClientToken string   `json:"client_token"`
-		Accessor    string   `json:"accessor"`
-		Policies    []string `json:"policies"`
-	}
+	Renewable     bool
+	LeaseDuration time.Duration
+	ClientToken   string
+	Accessor      string
+	Policies      []string
 	//Metadata's internal structure is dependent on the auth type
-	Metadata interface{} `json:"metadata"`
+	Metadata interface{}
+}
+
+type authOutputRaw struct {
+	Renewable     bool `json:"renewable"`
+	LeaseDuration int  `json:"lease_duration"`
+	Auth          struct {
+		ClientToken   string                 `json:"client_token"`
+		Accessor      string                 `json:"accessor"`
+		Policies      []string               `json:"policies"`
+		Renewable     bool                   `json:"renewable"`
+		LeaseDuration int                    `json:"lease_duration"`
+		Metadata      map[string]interface{} `json:"metadata"`
+	} `json:"auth"`
+	//Metadata's internal structure is dependent on the auth type
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+func (a authOutputRaw) toFinal(m interface{}) *AuthOutput {
+	ret := &AuthOutput{
+		ClientToken:   a.Auth.ClientToken,
+		Accessor:      a.Auth.Accessor,
+		Policies:      a.Auth.Policies,
+		Renewable:     a.Auth.Renewable || a.Renewable,
+		LeaseDuration: time.Duration(a.LeaseDuration) * time.Second,
+	}
+
+	metadata := a.Metadata
+
+	if len(metadata) == 0 {
+		metadata = a.Auth.Metadata
+	}
+
+	if len(metadata) != 0 && m != nil {
+		b, err := json.Marshal(&ret.Metadata)
+		if err != nil {
+			panic("could not marshal map that we created")
+		}
+
+		err = json.Unmarshal(b, &m)
+		if err != nil {
+			panic("could not unmarshal json that we created")
+		}
+
+		ret.Metadata = m
+	}
+
+	if ret.LeaseDuration == 0 {
+		ret.LeaseDuration = time.Duration(a.Auth.LeaseDuration) * time.Second
+	}
+
+	return ret
 }
 
 //AuthGithubMetadata is the metadata member set by AuthGithub.
@@ -33,19 +82,20 @@ type AuthGithubMetadata struct {
 // belongs to an authorized account, then the AuthOutput object is returned, and
 // this client's AuthToken is set to the returned token.
 func (v *Client) AuthGithub(accessToken string) (ret *AuthOutput, err error) {
-	ret = &AuthOutput{Metadata: AuthGithubMetadata{}}
+	raw := &authOutputRaw{}
 	err = v.doRequest(
 		"POST",
 		"/auth/github/login",
 		struct {
 			Token string `json:"token"`
 		}{Token: accessToken},
-		&ret,
+		&raw,
 	)
-
-	if err == nil {
-		v.AuthToken = ret.Auth.ClientToken
+	if err != nil {
+		return
 	}
+	ret = raw.toFinal(AuthGithubMetadata{})
+	v.AuthToken = ret.ClientToken
 
 	return
 }
@@ -60,19 +110,21 @@ type AuthLDAPMetadata struct {
 //then the AuthOutput object is returned, and this client's AuthToken is set to
 //the returned token.
 func (v *Client) AuthLDAP(username, password string) (ret *AuthOutput, err error) {
-	ret = &AuthOutput{Metadata: AuthLDAPMetadata{}}
+	raw := &authOutputRaw{}
 	err = v.doRequest(
 		"POST",
 		fmt.Sprintf("/auth/ldap/login/%s", username),
 		struct {
 			Password string `json:"password"`
 		}{Password: password},
-		&ret,
+		&raw,
 	)
-
-	if err == nil {
-		v.AuthToken = ret.Auth.ClientToken
+	if err != nil {
+		return
 	}
+
+	ret = raw.toFinal(AuthLDAPMetadata{})
+	v.AuthToken = ret.ClientToken
 
 	return
 }
@@ -86,7 +138,7 @@ type AuthUserpassMetadata struct {
 //endpoint. If a username with that password exists, then the AuthOutput object
 //is returned, and this client's AuthToken is set to the returned token.
 func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err error) {
-	ret = &AuthOutput{Metadata: AuthUserpassMetadata{}}
+	raw := &authOutputRaw{}
 	err = v.doRequest(
 		"POST",
 		fmt.Sprintf("/auth/userpass/login/%s", username),
@@ -95,16 +147,18 @@ func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err e
 		}{Password: password},
 		&ret,
 	)
-
-	if err == nil {
-		v.AuthToken = ret.Auth.ClientToken
+	if err != nil {
+		return
 	}
+
+	ret = raw.toFinal(AuthUserpassMetadata{})
+	v.AuthToken = ret.ClientToken
 
 	return
 }
 
 func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err error) {
-	ret = &AuthOutput{}
+	raw := &authOutputRaw{}
 	err = v.doRequest(
 		"POST",
 		"/auth/approle/login",
@@ -117,10 +171,12 @@ func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err erro
 		},
 		&ret,
 	)
-
-	if err == nil {
-		v.AuthToken = ret.Auth.ClientToken
+	if err != nil {
+		return
 	}
+
+	ret = raw.toFinal(nil)
+	v.AuthToken = ret.ClientToken
 
 	return
 }

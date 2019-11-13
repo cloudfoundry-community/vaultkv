@@ -114,7 +114,7 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 	req.Header.Set("X-Vault-Token", token)
 
 	if v.Namespace != "" {
-		req.Header.Set("X-Vault-Namespace", v.Namespace)
+		req.Header.Set("X-Vault-Namespace", strings.Trim(v.Namespace, "/")+"/")
 	}
 
 	client := v.Client

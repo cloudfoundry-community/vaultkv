@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 //Client provides functions that access and abstract the Vault API.
@@ -28,6 +29,7 @@ type Client struct {
 	//Namespace, if non-empty, will send a X-Vault-Namespace header on requests with
 	// the given value.
 	Namespace string
+	tokenLock sync.RWMutex
 }
 
 type vaultResponse struct {
@@ -107,7 +109,9 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 		_, _ = v.Trace.Write([]byte(fmt.Sprintf("Request:\n%s\n", dump)))
 	}
 
+	v.tokenLock.RLock()
 	token := v.AuthToken
+	v.tokenLock.RUnlock()
 	if token == "" {
 		token = "01234567-89ab-cdef-0123-456789abcdef"
 	}

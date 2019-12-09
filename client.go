@@ -44,12 +44,6 @@ func (v *Client) doRequest(
 	input interface{},
 	output interface{}) error {
 
-	u := *v.VaultURL
-	u.Path = fmt.Sprintf("/v1/%s", strings.Trim(path, "/"))
-	if u.Port() == "" {
-		u.Host = fmt.Sprintf("%s:8200", u.Host)
-	}
-
 	var query url.Values
 	var body io.Reader
 	if input != nil {
@@ -93,7 +87,11 @@ func (v *Client) doRequest(
 func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.Reader) (*http.Response, error) {
 	//Setup URL
 	u := *v.VaultURL
-	u.Path = fmt.Sprintf("/v1/%s", strings.Trim(path, "/"))
+	pathPrefix := strings.Trim(u.Path, "/")
+	if pathPrefix != "" {
+		pathPrefix = u.Path + "/"
+	}
+	u.Path = fmt.Sprintf("/%sv1/%s", pathPrefix, strings.Trim(path, "/"))
 	if u.Port() == "" {
 		u.Host = fmt.Sprintf("%s:8200", u.Host)
 	}

@@ -227,3 +227,15 @@ func (c *Client) TuneSecretsMount(path string, opts TuneMountOptions) error {
 		nil,
 	)
 }
+
+//SetMountVersion sets the version of the mount (presumably KV mount) to the
+// given version. Just a shorthand wrapper for TuneSecretsMount with the
+// appropriate opts structure.
+func (c *Client) SetMountVersion(path string, version int) error {
+	return c.TuneSecretsMount(
+		path,
+		TuneMountOptions{
+			Options: KVMountOptions{}.WithVersion(version),
+		},
+	)
+}

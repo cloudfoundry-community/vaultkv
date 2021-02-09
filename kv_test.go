@@ -311,6 +311,12 @@ var _ = Describe("KV", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
+				Describe("the version metadata output", func() {
+					It("should have a CreatedAt time of the zero value", func() {
+						Expect(testVersionOutput.CreatedAt.IsZero()).To(BeTrue())
+					})
+				})
+
 				Describe("Getting a version >1", func() {
 					JustBeforeEach(func() {
 						_, err = testkv.Get(testSetPath, nil, &vaultkv.KVGetOpts{Version: 2})
@@ -416,6 +422,12 @@ var _ = Describe("KV", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
+				Describe("the version metadata output", func() {
+					It("should have a CreatedAt time later than the zero value", func() {
+						Expect(testVersionOutput.CreatedAt.IsZero()).To(BeFalse())
+					})
+				})
+
 				Describe("setting another version", func() {
 					var testVersionOutput2 vaultkv.KVVersion
 					var testSetValue2 map[string]string
@@ -442,16 +454,24 @@ var _ = Describe("KV", func() {
 						Context("getting version 1", func() {
 							BeforeEach(func() { testGetVersion = 1 })
 							It("should get the first version", func() {
+								By("the result having version 1")
 								Expect(testGetVersionOutput.Version).To(Equal(testGetVersion))
+								By("the return value having the correct value")
 								Expect(testGetValue).To(Equal(testSetValue))
+								By("the CreatedAt time being non-zero")
+								Expect(testGetVersionOutput.CreatedAt.IsZero()).To(BeFalse())
 							})
 						})
 
 						Context("getting version 2", func() {
 							BeforeEach(func() { testGetVersion = 2 })
 							It("should get the second version", func() {
+								By("the result having version 2")
 								Expect(testGetVersionOutput.Version).To(Equal(testGetVersion))
+								By("the return value having the correct value")
 								Expect(testGetValue).To(Equal(testSetValue2))
+								By("the CreatedAt time being non-zero")
+								Expect(testGetVersionOutput.CreatedAt.IsZero()).To(BeFalse())
 							})
 						})
 					})

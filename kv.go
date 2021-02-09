@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 //KV provides an abstraction to the Vault tree which makes dealing with
@@ -141,6 +142,7 @@ func (k kvv2Mount) Get(mount, subpath string, output interface{}, opts *KVGetOpt
 		meta.Deleted = m.DeletedAt != nil
 		meta.Destroyed = m.Destroyed
 		meta.Version = m.Version
+		meta.CreatedAt = m.CreatedAt
 	}
 	return
 }
@@ -154,6 +156,7 @@ func (k kvv2Mount) Set(mount, subpath string, values map[string]string, opts *KV
 	m, err = k.client.V2Set(mount, subpath, values, nil)
 	if err == nil {
 		meta.Version = m.Version
+		meta.CreatedAt = m.CreatedAt
 	}
 	return
 }
@@ -190,6 +193,7 @@ func (k kvv2Mount) Versions(mount, subpath string) (ret []KVVersion, err error) 
 		ret[i].Deleted = meta.Versions[i].DeletedAt != nil
 		ret[i].Destroyed = meta.Versions[i].Destroyed
 		ret[i].Version = meta.Versions[i].Version
+		ret[i].CreatedAt = meta.Versions[i].CreatedAt
 	}
 	return
 }
@@ -270,6 +274,8 @@ type KVGetOpts struct {
 
 //KVVersion contains information about a version of a secret.
 type KVVersion struct {
+	//If KV version is 1, CreatedAt.IsZero() will be true
+	CreatedAt time.Time
 	Version   uint
 	Deleted   bool
 	Destroyed bool

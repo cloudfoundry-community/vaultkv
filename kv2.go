@@ -188,11 +188,11 @@ func (c *Client) V2Get(mount, subpath string, output interface{}, opts *V2GetOpt
 //"directory". The Vault must be unsealed and initialized for this endpoint to
 //work. No assumptions are made about the mounting point of your Key/Value
 //backend.
-func (v *Client) V2List(mount, subpath string) ([]string, error) {
+func (c *Client) V2List(mount, subpath string) ([]string, error) {
 	ret := []string{}
 	path := fmt.Sprintf("%s/metadata/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))
 
-	err := v.doRequest("LIST", path, nil, &vaultResponse{
+	err := c.doRequest("LIST", path, nil, &vaultResponse{
 		Data: &struct {
 			Keys *[]string `json:"keys"`
 		}{

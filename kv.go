@@ -275,6 +275,11 @@ type KVVersion struct {
 	Destroyed bool
 }
 
+//Alive returns if the KVVersion is not deleted or destroyed.
+func (k KVVersion) Alive() bool {
+	return !(k.Deleted || k.Destroyed)
+}
+
 //Get retrieves the value at the given path in the tree. This follows the
 //semantics of Client.Get or Client.V2Get, chosen based on the backend mounted
 //at the path given.

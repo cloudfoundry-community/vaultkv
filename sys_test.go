@@ -507,6 +507,32 @@ var _ = Describe("Sys", func() {
 				})
 			})
 
+			Describe("Upgrading the backend to KVv2", func() {
+				JustBeforeEach(func() {
+					err = vault.UpgradeKVToV2(testBackendName)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				Describe("checking if is KVv2", func() {
+					var retMountPath string
+					var retIsV2 bool
+					JustBeforeEach(func() {
+						retMountPath, retIsV2, err = vault.IsKVv2Mount(testBackendName)
+					})
+
+					It("should have the proper configuration", func() {
+						By("not erroring")
+						Expect(err).NotTo(HaveOccurred())
+
+						By("having the correct mount point")
+						Expect(retMountPath).To(BeEquivalentTo(testBackendName))
+
+						By("being version 2")
+						Expect(retIsV2).To(BeTrue())
+					})
+				})
+			})
+
 			Describe("Unmounting the backend", func() {
 				JustBeforeEach(func() {
 					err = vault.DisableSecretsMount(testBackendName)

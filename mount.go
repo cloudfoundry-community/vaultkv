@@ -216,8 +216,8 @@ func (c *Client) TuneSecretsMount(path string, opts TuneMountOptions) error {
 		Options         map[string]interface{} `json:"options,omitempty"`
 	}{
 		Description:     opts.Description,
-		DefaultLeaseTTL: int(opts.DefaultLeaseTTL.Seconds()),
-		MaxLeaseTTL:     int(opts.MaxLeaseTTL.Seconds()),
+		DefaultLeaseTTL: int(opts.DefaultLeaseTTL / time.Second),
+		MaxLeaseTTL:     int(opts.MaxLeaseTTL / time.Second),
 		Options:         opts.Options,
 	}
 

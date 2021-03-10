@@ -85,20 +85,6 @@ func (c *Client) IsKVv2Mount(path string) (mountPath string, isV2 bool, err erro
 	return
 }
 
-//SplitMount takes the given path and splits it into the respective mount name
-// and path under the mount and returns both parts
-func SplitMount(path string) (mount string, subpath string) {
-	path = strings.TrimLeft(path, "/")
-	splits := strings.SplitN(path, "/", 2)
-	mount = splits[0]
-	if len(splits) > 1 {
-		subpath = splits[1]
-	}
-
-	subpath = fmt.Sprintf("/%s", strings.TrimLeft(subpath, "/"))
-	return
-}
-
 //V2Version is information about a version of a secret. The DeletedAt member
 // will be nil to signify that a version is not deleted. Take note of the
 // difference between "deleted" and "destroyed" - a deletion simply marks a

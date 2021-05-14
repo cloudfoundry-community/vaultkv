@@ -414,10 +414,13 @@ var _ = Describe("KV", func() {
 			Describe("Set", func() {
 				var testVersionOutput vaultkv.KVVersion
 				var testSetPath string
-				var testSetValue map[string]string
+				var testSetValue interface{}
+				BeforeEach(func() {
+					testSetValue = map[string]string{"foo": "bar"}
+				})
+
 				JustBeforeEach(func() {
 					testSetPath = fmt.Sprintf("%s/testfield", testMountName)
-					testSetValue = map[string]string{"foo": "bar"}
 					testVersionOutput, err = testkv.Set(testSetPath, testSetValue, nil)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -425,6 +428,22 @@ var _ = Describe("KV", func() {
 				Describe("the version metadata output", func() {
 					It("should have a CreatedAt time later than the zero value", func() {
 						Expect(testVersionOutput.CreatedAt.IsZero()).To(BeFalse())
+					})
+				})
+
+				Context("with the input value being a struct", func() {
+					BeforeEach(func() {
+						testSetValue = struct {
+							Foo string `json:"foo"`
+						}{
+							Foo: "bar",
+						}
+					})
+
+					Describe("the version metadata output", func() {
+						It("should have a CreatedAt time later than the zero value", func() {
+							Expect(testVersionOutput.CreatedAt.IsZero()).To(BeFalse())
+						})
 					})
 				})
 

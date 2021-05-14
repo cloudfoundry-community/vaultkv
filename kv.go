@@ -23,7 +23,7 @@ type KV struct {
 
 type kvMount interface {
 	Get(mount, subpath string, output interface{}, opts *KVGetOpts) (meta KVVersion, err error)
-	Set(mount, subpath string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error)
+	Set(mount, subpath string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error)
 	List(mount, subpath string) (paths []string, err error)
 	Delete(mount, subpath string, opts *KVDeleteOpts) (err error)
 	Undelete(mount, subpath string, versions []uint) (err error)
@@ -65,7 +65,7 @@ func (k kvv1Mount) List(mount, subpath string) (paths []string, err error) {
 	return k.client.List(path)
 }
 
-func (k kvv1Mount) Set(mount, subpath string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
+func (k kvv1Mount) Set(mount, subpath string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
 	path := v1ConstructPath(mount, subpath)
 	err = k.client.Set(path, values)
 	if err == nil {
@@ -151,7 +151,7 @@ func (k kvv2Mount) List(mount, subpath string) (paths []string, err error) {
 	return k.client.V2List(mount, subpath)
 }
 
-func (k kvv2Mount) Set(mount, subpath string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
+func (k kvv2Mount) Set(mount, subpath string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
 	var m V2Version
 	m, err = k.client.V2Set(mount, subpath, values, nil)
 	if err == nil {
@@ -319,7 +319,7 @@ type KVSetOpts struct{}
 
 //Set puts the values given at the path given. If KV v1, the previous value, if
 //any, is overwritten.  If KV v2, a new version is created.
-func (k *KV) Set(path string, values map[string]string, opts *KVSetOpts) (meta KVVersion, err error) {
+func (k *KV) Set(path string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
 	mountPath, mount, err := k.mountForPath(path)
 	if err != nil {
 		return

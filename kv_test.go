@@ -433,6 +433,23 @@ var _ = Describe("KV", func() {
 
 				Context("with the input value being a struct", func() {
 					BeforeEach(func() {
+						testSetValue = map[string]interface{}{
+							"foo": map[string]interface{}{
+								"beep": "boop",
+								"wham": "bam",
+							},
+						}
+					})
+
+					Describe("the version metadata output", func() {
+						It("should have a CreatedAt time later than the zero value", func() {
+							Expect(testVersionOutput.CreatedAt.IsZero()).To(BeFalse())
+						})
+					})
+				})
+
+				Context("with the input value having a nested value", func() {
+					BeforeEach(func() {
 						testSetValue = struct {
 							Foo string `json:"foo"`
 						}{

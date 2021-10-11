@@ -124,6 +124,49 @@ func (v *Client) AuthGithubMount(mount, accessToken string) (ret *AuthOutput, er
 	return
 }
 
+//AuthOktaMetadata is the metadata member set by AuthOkta
+type AuthOktaMetadata struct {
+	Username string `json:"username"`
+}
+
+//AuthOkta is a shorthand for AuthOktaMount against the default Okta mountpoint,
+//'okta'.
+func (v *Client) AuthOkta(username, password string) (ret *AuthOutput, err error) {
+	return v.AuthOktaMount("okta", username, password)
+}
+
+//AuthOktaMount submits the given username and password to the Okta auth endpoint
+//mounted at the given mountpoint, checking it against existing Okta auth
+//configurations. If auth is successful, then the AuthOutput object is returned,
+//and this client's AuthToken is set to the returned token. Given mountpoint is
+//relative to /v1/auth.
+func (v *Client) AuthOktaMount(mount, username, password string) (ret *AuthOutput, err error) {
+	raw := &authOutputRaw{}
+
+	mount = strings.Trim(mount, "/")
+	if mount == "" {
+		return nil, fmt.Errorf("no mountpoint given")
+	}
+
+	err = v.doRequest(
+		"POST",
+		fmt.Sprintf("/auth/%s/login/%s", mount, username),
+		struct {
+			Password string `json:"password"`
+		}{Password: password},
+		&raw,
+	)
+	fmt.Sprintf("%s", err)
+	if err != nil {
+		return
+	}
+
+	ret = raw.toFinal(AuthOktaMetadata{})
+	v.AuthToken = ret.ClientToken
+
+	return
+}
+
 //AuthLDAPMetadata is the metadata member set by AuthLDAP
 type AuthLDAPMetadata struct {
 	Username string `json:"username"`

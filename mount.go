@@ -15,7 +15,7 @@ const (
 	MountTypeKV = "kv"
 )
 
-//Mount represents a backend mounted at a point in Vault.
+// Mount represents a backend mounted at a point in Vault.
 type Mount struct {
 	//The type of mount at this point
 	Type        string
@@ -24,7 +24,7 @@ type Mount struct {
 	Options     map[string]interface{}
 }
 
-//MountConfig specifies configuration options given when initializing a backend.
+// MountConfig specifies configuration options given when initializing a backend.
 type MountConfig struct {
 	DefaultLeaseTTL time.Duration
 	MaxLeaseTTL     time.Duration
@@ -95,7 +95,7 @@ func newMountConfigEnableAPI(conf *MountConfig) *mountConfigEnableAPI {
 	}
 }
 
-//ListMounts queries the Vault backend for a list of active mounts that can
+// ListMounts queries the Vault backend for a list of active mounts that can
 // be seen with the current authentication token. It is returned as a map
 // of mount points to mount information.
 func (c *Client) ListMounts() (map[string]Mount, error) {
@@ -114,7 +114,7 @@ func (c *Client) ListMounts() (map[string]Mount, error) {
 	}
 
 	if mounts == nil {
-		mounts := getMountList(output)
+		mounts = getMountList(output)
 		if mounts == nil {
 			return nil, fmt.Errorf("Could not parse mount list")
 		}
@@ -144,12 +144,12 @@ func getMountList(candidate interface{}) map[string]mountListAPI {
 	return tmpOutput
 }
 
-//KVMountOptions is a map[string]interface{} that can be given as the options
-//when mounting a backend. It has Version manipulation functions to make life
-//easier.
+// KVMountOptions is a map[string]interface{} that can be given as the options
+// when mounting a backend. It has Version manipulation functions to make life
+// easier.
 type KVMountOptions map[string]interface{}
 
-//GetVersion retruns the version held in the KVMountOptions object
+// GetVersion retruns the version held in the KVMountOptions object
 func (o KVMountOptions) GetVersion() int {
 	if o == nil {
 		return 1
@@ -165,7 +165,7 @@ func (o KVMountOptions) GetVersion() int {
 	return ret
 }
 
-//WithVersion returns a new KVMountOptions object with the given version
+// WithVersion returns a new KVMountOptions object with the given version
 func (o KVMountOptions) WithVersion(version int) KVMountOptions {
 	if o == nil {
 		o = make(map[string]interface{}, 1)
@@ -175,7 +175,7 @@ func (o KVMountOptions) WithVersion(version int) KVMountOptions {
 	return o
 }
 
-//EnableSecretsMount mounts a secrets backend at the given path, configured with
+// EnableSecretsMount mounts a secrets backend at the given path, configured with
 // the given Mount configuration.
 func (c *Client) EnableSecretsMount(path string, config Mount) error {
 	input := struct {
@@ -193,12 +193,12 @@ func (c *Client) EnableSecretsMount(path string, config Mount) error {
 	return c.doRequest("POST", fmt.Sprintf("/sys/mounts/%s", path), &input, nil)
 }
 
-//DisableSecretsMount deletes the mount at the given path.
+// DisableSecretsMount deletes the mount at the given path.
 func (c *Client) DisableSecretsMount(path string) error {
 	return c.doRequest("DELETE", fmt.Sprintf("/sys/mounts/%s", path), nil, nil)
 }
 
-//TuneMountOptions are parameters to be sent to the Vault when editing the
+// TuneMountOptions are parameters to be sent to the Vault when editing the
 // configuration of a mount. Only non-empty values will be sent.
 type TuneMountOptions struct {
 	Description     string
@@ -207,7 +207,7 @@ type TuneMountOptions struct {
 	Options         map[string]interface{}
 }
 
-//TuneSecretsMount updates the configuration of the mount at the given path.
+// TuneSecretsMount updates the configuration of the mount at the given path.
 func (c *Client) TuneSecretsMount(path string, opts TuneMountOptions) error {
 	rawTuneMountOptions := struct {
 		Description     string                 `json:"description,omitempty"`
@@ -228,7 +228,7 @@ func (c *Client) TuneSecretsMount(path string, opts TuneMountOptions) error {
 	)
 }
 
-//UpgradeKVToV2 sets the version of the mount (presumably KV mount) to the
+// UpgradeKVToV2 sets the version of the mount (presumably KV mount) to the
 // version 2. Just a shorthand wrapper for TuneSecretsMount with the
 // appropriate opts structure.
 func (c *Client) UpgradeKVToV2(path string) error {

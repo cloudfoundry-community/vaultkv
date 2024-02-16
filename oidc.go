@@ -62,15 +62,10 @@ func (v *Client) AuthOIDCMount(mount string) (ret *AuthOutput, err error) {
 	}
 	defer listener.Close()
 
-	//// Open the default browser to the callback URL.
-	//if !skipBrowserLaunch {
 	fmt.Fprintf(os.Stderr, "Complete the login via your OIDC provider. Launching browser to:\n\n    %s\n\n\n", authURL)
 	if err := util.OpenURL(authURL); err != nil {
 		return nil, fmt.Errorf("failed to launch the browser , err=%w", err)
 	}
-	//} else {
-	//    fmt.Fprintf(os.Stderr, "Complete the login via your OIDC provider. Open the following link in your browser:\n\n    %s\n\n\n", authURL)
-	//}
 	fmt.Fprintf(os.Stderr, "Waiting for OIDC authentication to complete...\n")
 
 	// Start local server

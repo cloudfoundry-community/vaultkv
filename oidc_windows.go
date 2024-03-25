@@ -1,5 +1,3 @@
-//go:build !windows
-
 package vaultkv
 
 import (
@@ -10,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/hashicorp/cap/util"
@@ -24,7 +21,7 @@ type AuthOIDCMetadata struct {
 
 // authHalts are the signals we want to interrupt our auth callback on.
 // SIGTSTP is omitted for Windows.
-var authHalts = []os.Signal{os.Interrupt, os.Kill, syscall.SIGTSTP}
+var authHalts = []os.Signal{os.Interrupt, os.Kill}
 
 // AuthOIDC is a shorthand for AuthOIDCMount against the default OIDC mountpoint,
 // 'OIDC'.

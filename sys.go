@@ -28,7 +28,7 @@ func (v *Client) doSysRequest(
 	return err
 }
 
-//IsInitialized returns true if the targeted Vault is initialized
+// IsInitialized returns true if the targeted Vault is initialized
 func (v *Client) IsInitialized() (is bool, err error) {
 	//Don't call doSysRequest from here because it calls IsInitialized
 	// and that could get ugly
@@ -45,9 +45,9 @@ func (v *Client) IsInitialized() (is bool, err error) {
 	return
 }
 
-//SealState is the return value from Unseal and SealStatus. Type is only
-//populated by SealStatus. ClusterName and ClusterID are only populated is
-//Vault is unsealed.
+// SealState is the return value from Unseal and SealStatus. Type is only
+// populated by SealStatus. ClusterName and ClusterID are only populated is
+// Vault is unsealed.
 type SealState struct {
 	//Type is the type of unseal key. It is not returned from Unseal
 	Type   string `json:"type,omitempty"`
@@ -66,7 +66,7 @@ type SealState struct {
 	ClusterID string `json:"cluster_id,omitempty"`
 }
 
-//SealStatus calls the /sys/seal-status endpoint and returns the info therein
+// SealStatus calls the /sys/seal-status endpoint and returns the info therein
 func (v *Client) SealStatus() (ret *SealState, err error) {
 	err = v.doSysRequest(
 		"GET",
@@ -77,8 +77,8 @@ func (v *Client) SealStatus() (ret *SealState, err error) {
 	return
 }
 
-//InitConfig is the information passed to InitVault to configure the Vault.
-//Shares and Threshold are required.
+// InitConfig is the information passed to InitVault to configure the Vault.
+// Shares and Threshold are required.
 type InitConfig struct {
 	//Split the master key into this many shares
 	Shares int `json:"secret_shares"`
@@ -88,8 +88,8 @@ type InitConfig struct {
 	PGPKeys         []string `json:"pgp_keys"`
 }
 
-//InitVaultOutput is the return value of InitVault, and contains the generated
-//Keys and RootToken.
+// InitVaultOutput is the return value of InitVault, and contains the generated
+// Keys and RootToken.
 type InitVaultOutput struct {
 	client     *Client
 	Keys       []string `json:"keys"`
@@ -97,9 +97,9 @@ type InitVaultOutput struct {
 	RootToken  string   `json:"root_token"`
 }
 
-//Unseal takes the keys in the InitVaultOutput object and sends each one to the
-//unseal endpoint. If any of the unseal calls are unsuccessful, an error is
-//returned.
+// Unseal takes the keys in the InitVaultOutput object and sends each one to the
+// unseal endpoint. If any of the unseal calls are unsuccessful, an error is
+// returned.
 func (i *InitVaultOutput) Unseal() error {
 	for _, key := range i.Keys {
 		sealState, err := i.client.Unseal(key)
@@ -115,10 +115,10 @@ func (i *InitVaultOutput) Unseal() error {
 	return nil
 }
 
-//InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
+// InitVault puts to the /sys/init endpoint to initialize the Vault, and returns
 // the root token and unseal keys that were generated. The token of the client
 // object is automatically set to the root token if the init is successful.
-//If the vault has already been initialized, this returns *ErrBadRequest
+// If the vault has already been initialized, this returns *ErrBadRequest
 func (v *Client) InitVault(in InitConfig) (out *InitVaultOutput, err error) {
 	out = &InitVaultOutput{}
 	err = v.doSysRequest(
@@ -137,7 +137,7 @@ func (v *Client) InitVault(in InitConfig) (out *InitVaultOutput, err error) {
 	return
 }
 
-//Seal puts to the /sys/seal endpoint to seal the Vault.
+// Seal puts to the /sys/seal endpoint to seal the Vault.
 // If the Vault is already sealed, this doesn't return an error.
 // If the Vault is unsealed and an incorrect token is provided, then this
 // returns *ErrForbidden. Newer versions of Vault (0.11.2+) APIs return errors
@@ -152,11 +152,11 @@ func (v *Client) Seal() error {
 	return err
 }
 
-//Unseal puts to the /sys/unseal endpoint with a single key to progress the
-//unseal attempt. If the unseal was successful, then the Sealed member of the
-//returned struct will be false. If the given unseal key is improperly
-//formatted, an *ErrBadRequest is returned. If the vault is already unsealed,
-//no error is returned
+// Unseal puts to the /sys/unseal endpoint with a single key to progress the
+// unseal attempt. If the unseal was successful, then the Sealed member of the
+// returned struct will be false. If the given unseal key is improperly
+// formatted, an *ErrBadRequest is returned. If the vault is already unsealed,
+// no error is returned
 func (v *Client) Unseal(key string) (out *SealState, err error) {
 	out = &SealState{}
 	err = v.doSysRequest(
@@ -179,9 +179,9 @@ func (v *Client) Unseal(key string) (out *SealState, err error) {
 	return
 }
 
-//ResetUnseal resets the current unseal attempt, such that the progress towards
-//an unseal becomes 0. If the vault is unsealed, nothing happens and no error
-//is returned.
+// ResetUnseal resets the current unseal attempt, such that the progress towards
+// an unseal becomes 0. If the vault is unsealed, nothing happens and no error
+// is returned.
 func (v *Client) ResetUnseal() (err error) {
 	err = v.doSysRequest(
 		"PUT",
@@ -197,13 +197,13 @@ func (v *Client) ResetUnseal() (err error) {
 	return
 }
 
-//Health gives information about the current state of the Vault. If standbyok
-//is set to true, no error will be returned in the case that the targeted vault
-//is a standby node or a performance standby node. If the targeted node is a
-//standby and standbyok is false, then ErrStandby will be returned. If the
-//Vault is not yet initialized, ErrUninitialized will be returned. If the Vault
-//is initialized but sealed, then ErrSealed will be returned. If none of these
-//are the case, no error is returned.
+// Health gives information about the current state of the Vault. If standbyok
+// is set to true, no error will be returned in the case that the targeted vault
+// is a standby node or a performance standby node. If the targeted node is a
+// standby and standbyok is false, then ErrStandby will be returned. If the
+// Vault is not yet initialized, ErrUninitialized will be returned. If the Vault
+// is initialized but sealed, then ErrSealed will be returned. If none of these
+// are the case, no error is returned.
 func (v *Client) Health(standbyok bool) error {
 	//Don't call doRequest from Health because ParseError calls Health
 	query := url.Values{}

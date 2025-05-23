@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-//ErrBadRequest represents 400 status codes that are returned from the API.
-//See: your fault.
+// ErrBadRequest represents 400 status codes that are returned from the API.
+// See: your fault.
 type ErrBadRequest struct {
 	message string
 }
@@ -18,13 +18,13 @@ func (e *ErrBadRequest) Error() string {
 	return fmt.Sprintf("400 Bad Request: %s", e.message)
 }
 
-//IsBadRequest returns true if the error is an ErrBadRequest
+// IsBadRequest returns true if the error is an ErrBadRequest
 func IsBadRequest(err error) bool {
 	_, is := err.(*ErrBadRequest)
 	return is
 }
 
-//ErrForbidden represents 403 status codes returned from the API. This could be
+// ErrForbidden represents 403 status codes returned from the API. This could be
 // if your auth is wrong or expired, or you simply don't have access to do the
 // particular thing you're trying to do. Check your privilege.
 type ErrForbidden struct {
@@ -35,13 +35,13 @@ func (e *ErrForbidden) Error() string {
 	return fmt.Sprintf("403 Forbidden: %s", e.message)
 }
 
-//IsForbidden returns true if the error is an ErrForbidden
+// IsForbidden returns true if the error is an ErrForbidden
 func IsForbidden(err error) bool {
 	_, is := err.(*ErrForbidden)
 	return is
 }
 
-//ErrNotFound represents 404 status codes returned from the API. This could be
+// ErrNotFound represents 404 status codes returned from the API. This could be
 // either that the thing you're looking for doesn't exist, or in some cases
 // that you don't have access to the thing you're looking for and that Vault is
 // hiding it from you.
@@ -53,13 +53,13 @@ func (e *ErrNotFound) Error() string {
 	return fmt.Sprintf("404 Not Found: %s", e.message)
 }
 
-//IsNotFound returns true if the error is an ErrNotFound
+// IsNotFound returns true if the error is an ErrNotFound
 func IsNotFound(err error) bool {
 	_, is := err.(*ErrNotFound)
 	return is
 }
 
-//ErrStandby is only returned from Health() if standbyok is set to false and the
+// ErrStandby is only returned from Health() if standbyok is set to false and the
 // node you're querying is a standby.
 type ErrStandby struct {
 	message string
@@ -69,14 +69,14 @@ func (e *ErrStandby) Error() string {
 	return fmt.Sprintf("429 Standby: %s", e.message)
 }
 
-//IsErrStandby returns true if the error is an ErrStandby
+// IsErrStandby returns true if the error is an ErrStandby
 func IsErrStandby(err error) bool {
 	_, is := err.(*ErrStandby)
 	return is
 }
 
-//ErrDRSecondary is only returned from Health() if standbyok is set to false
-//and the node you're querying is a secondary disaster recovery node.
+// ErrDRSecondary is only returned from Health() if standbyok is set to false
+// and the node you're querying is a secondary disaster recovery node.
 type ErrDRSecondary struct {
 	message string
 }
@@ -85,14 +85,14 @@ func (e *ErrDRSecondary) Error() string {
 	return fmt.Sprintf("472 DRSecondary: %s", e.message)
 }
 
-//IsErrDRSecondary returns true if the error is an ErrDRSecondary
+// IsErrDRSecondary returns true if the error is an ErrDRSecondary
 func IsErrDRSecondary(err error) bool {
 	_, is := err.(*ErrDRSecondary)
 	return is
 }
 
-//ErrPerfStandby is only returned from Health() if standbyok is set to false
-//and the node you're querying is a performance standby node.
+// ErrPerfStandby is only returned from Health() if standbyok is set to false
+// and the node you're querying is a performance standby node.
 type ErrPerfStandby struct {
 	message string
 }
@@ -101,20 +101,20 @@ func (e *ErrPerfStandby) Error() string {
 	return fmt.Sprintf("473 PerfStandby %s", e.message)
 }
 
-//IsErrPerfStandby returns true if the error is an ErrPerfStandby
+// IsErrPerfStandby returns true if the error is an ErrPerfStandby
 func IsErrPerfStandby(err error) bool {
 	_, is := err.(*ErrPerfStandby)
 	return is
 }
 
-//IsAnyStandbyErr returns true if the error is that the node is a standby or a
-//performance standby
+// IsAnyStandbyErr returns true if the error is that the node is a standby or a
+// performance standby
 func IsAnyStandbyErr(err error) bool {
 	return IsErrStandby(err) || IsErrPerfStandby(err)
 }
 
-//ErrInternalServer represents 500 status codes that are returned from the API.
-//See: their fault.
+// ErrInternalServer represents 500 status codes that are returned from the API.
+// See: their fault.
 type ErrInternalServer struct {
 	message string
 }
@@ -123,13 +123,13 @@ func (e *ErrInternalServer) Error() string {
 	return fmt.Sprintf("500 Internal Server Error: %s", e.message)
 }
 
-//IsInternalServer returns true if the error is an ErrInternalServer
+// IsInternalServer returns true if the error is an ErrInternalServer
 func IsInternalServer(err error) bool {
 	_, is := err.(*ErrInternalServer)
 	return is
 }
 
-//ErrSealed represents the 503 status code that is returned by Vault most
+// ErrSealed represents the 503 status code that is returned by Vault most
 // commonly if the Vault is currently sealed, but could also represent the Vault
 // being in a maintenance state.
 type ErrSealed struct {
@@ -140,14 +140,14 @@ func (e *ErrSealed) Error() string {
 	return fmt.Sprintf("503 Sealed: %s", e.message)
 }
 
-//IsSealed returns true if the error is an ErrSealed
+// IsSealed returns true if the error is an ErrSealed
 func IsSealed(err error) bool {
 	_, is := err.(*ErrSealed)
 	return is
 }
 
-//ErrUninitialized represents a 503 status code being returned and the Vault
-//being uninitialized.
+// ErrUninitialized represents a 503 status code being returned and the Vault
+// being uninitialized.
 type ErrUninitialized struct {
 	message string
 }
@@ -156,13 +156,13 @@ func (e *ErrUninitialized) Error() string {
 	return fmt.Sprintf("503 Uninitialized: %s", e.message)
 }
 
-//IsUninitialized returns true if the error is an ErrUninitialized
+// IsUninitialized returns true if the error is an ErrUninitialized
 func IsUninitialized(err error) bool {
 	_, is := err.(*ErrUninitialized)
 	return is
 }
 
-//ErrTransport is returned if an error was encountered trying to reach the API,
+// ErrTransport is returned if an error was encountered trying to reach the API,
 // as opposed to an error from the API, is returned
 type ErrTransport struct {
 	message string
@@ -172,13 +172,13 @@ func (e *ErrTransport) Error() string {
 	return fmt.Sprintf("Transport Error: %s", e.message)
 }
 
-//IsTransport returns true if the error is an ErrTransport
+// IsTransport returns true if the error is an ErrTransport
 func IsTransport(err error) bool {
 	_, is := err.(*ErrTransport)
 	return is
 }
 
-//ErrKVUnsupported is returned by the KV object when the user requests an
+// ErrKVUnsupported is returned by the KV object when the user requests an
 // operation that cannot be performed by the actual version of the KV backend
 // that the KV object is abstracting
 type ErrKVUnsupported struct {
@@ -189,7 +189,7 @@ func (e *ErrKVUnsupported) Error() string {
 	return fmt.Sprintf("Operation unsupported by KV version: %s", e.message)
 }
 
-//IsErrKVUnsupported returns true if the error is an ErrKVUnsupported
+// IsErrKVUnsupported returns true if the error is an ErrKVUnsupported
 func IsErrKVUnsupported(err error) bool {
 	_, is := err.(*ErrKVUnsupported)
 	return is

@@ -47,7 +47,7 @@ func (v *Client) AuthOIDCMount(mount string) (ret *AuthOutput, err error) {
 	sigintCh := make(chan os.Signal, 1)
 	signal.Notify(sigintCh, authHalts...)
 	defer signal.Stop(sigintCh)
-	raw := &authOutputRaw{}
+	//raw := &authOutputRaw{} // see go vet unreachable code below
 
 	authURL, clientNonce, err := fetchAuthURL(v, mount)
 	if err != nil {
@@ -86,10 +86,10 @@ func (v *Client) AuthOIDCMount(mount string) (ret *AuthOutput, err error) {
 	case <-time.After(2 * time.Minute):
 		return nil, errors.New("Timed out waiting for response from provider")
 	}
-
-	ret = raw.toFinal(AuthOIDCMetadata{})
-	v.AuthToken = ret.ClientToken
-	return
+	// go vet: ./oidc.go:89:2: unreachable code
+	//ret = raw.toFinal(AuthOIDCMetadata{})
+	//v.AuthToken = ret.ClientToken
+	//return
 }
 func fetchAuthURL(v *Client, mount string) (string, string, error) {
 	//var authURL string

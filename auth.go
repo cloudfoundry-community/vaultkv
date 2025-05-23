@@ -7,20 +7,20 @@ import (
 	"time"
 )
 
-//SetAuthToken provides a thread-safe way to set the auth token for the client.
-//Setting AuthToken directly is still valid, but may race if a coroutine can
-//possibly make a request with the client while the AuthToken is being written
-//to. This function handles a mutex which avoids that.
+// SetAuthToken provides a thread-safe way to set the auth token for the client.
+// Setting AuthToken directly is still valid, but may race if a coroutine can
+// possibly make a request with the client while the AuthToken is being written
+// to. This function handles a mutex which avoids that.
 func (v *Client) SetAuthToken(token string) {
 	v.tokenLock.Lock()
 	v.AuthToken = token
 	v.tokenLock.Unlock()
 }
 
-//AuthOutput is the general structure as returned by AuthX functions. The
-//Metadata member type is determined by the specific Auth function. Note that
-//the Vault must be initialized and unsealed in order to use authentication
-//endpoints.
+// AuthOutput is the general structure as returned by AuthX functions. The
+// Metadata member type is determined by the specific Auth function. Note that
+// the Vault must be initialized and unsealed in order to use authentication
+// endpoints.
 type AuthOutput struct {
 	Renewable     bool
 	LeaseDuration time.Duration
@@ -32,9 +32,9 @@ type AuthOutput struct {
 }
 
 type authOutputRaw struct {
-	Renewable     bool `json:"renewable"`
-	Data map[string]interface{} `json:"data"`
-	LeaseDuration int  `json:"lease_duration"`
+	Renewable     bool                   `json:"renewable"`
+	Data          map[string]interface{} `json:"data"`
+	LeaseDuration int                    `json:"lease_duration"`
 	Auth          struct {
 		ClientToken   string                 `json:"client_token"`
 		Accessor      string                 `json:"accessor"`
@@ -83,23 +83,23 @@ func (a authOutputRaw) toFinal(m interface{}) *AuthOutput {
 	return ret
 }
 
-//AuthGithubMetadata is the metadata member set by AuthGithub.
+// AuthGithubMetadata is the metadata member set by AuthGithub.
 type AuthGithubMetadata struct {
 	Username     string `json:"username"`
 	Organization string `json:"org"`
 }
 
-//AuthGithub is a shorthand for AuthGithubMount against the default github auth
-//mountpoint, 'github'
+// AuthGithub is a shorthand for AuthGithubMount against the default github auth
+// mountpoint, 'github'
 func (v *Client) AuthGithub(accessToken string) (ret *AuthOutput, err error) {
 	return v.AuthGithubMount("github", accessToken)
 }
 
-//AuthGithubMount submits the given accessToken to the github auth endpoint at
-//the given mount, checking it against configurations for Github organizations.
-//If the accessToken belongs to an authorized account, then the AuthOutput
-//object is returned, and this client's AuthToken is set to the returned token.
-//Given mountpoint is relative to /v1/auth.
+// AuthGithubMount submits the given accessToken to the github auth endpoint at
+// the given mount, checking it against configurations for Github organizations.
+// If the accessToken belongs to an authorized account, then the AuthOutput
+// object is returned, and this client's AuthToken is set to the returned token.
+// Given mountpoint is relative to /v1/auth.
 func (v *Client) AuthGithubMount(mount, accessToken string) (ret *AuthOutput, err error) {
 	raw := &authOutputRaw{}
 
@@ -125,22 +125,22 @@ func (v *Client) AuthGithubMount(mount, accessToken string) (ret *AuthOutput, er
 	return
 }
 
-//AuthOktaMetadata is the metadata member set by AuthOkta
+// AuthOktaMetadata is the metadata member set by AuthOkta
 type AuthOktaMetadata struct {
 	Username string `json:"username"`
 }
 
-//AuthOkta is a shorthand for AuthOktaMount against the default Okta mountpoint,
-//'okta'.
+// AuthOkta is a shorthand for AuthOktaMount against the default Okta mountpoint,
+// 'okta'.
 func (v *Client) AuthOkta(username, password string) (ret *AuthOutput, err error) {
 	return v.AuthOktaMount("okta", username, password)
 }
 
-//AuthOktaMount submits the given username and password to the Okta auth endpoint
-//mounted at the given mountpoint, checking it against existing Okta auth
-//configurations. If auth is successful, then the AuthOutput object is returned,
-//and this client's AuthToken is set to the returned token. Given mountpoint is
-//relative to /v1/auth.
+// AuthOktaMount submits the given username and password to the Okta auth endpoint
+// mounted at the given mountpoint, checking it against existing Okta auth
+// configurations. If auth is successful, then the AuthOutput object is returned,
+// and this client's AuthToken is set to the returned token. Given mountpoint is
+// relative to /v1/auth.
 func (v *Client) AuthOktaMount(mount, username, password string) (ret *AuthOutput, err error) {
 	raw := &authOutputRaw{}
 
@@ -157,7 +157,6 @@ func (v *Client) AuthOktaMount(mount, username, password string) (ret *AuthOutpu
 		}{Password: password},
 		&raw,
 	)
-	fmt.Sprintf("%s", err)
 	if err != nil {
 		return
 	}
@@ -168,22 +167,22 @@ func (v *Client) AuthOktaMount(mount, username, password string) (ret *AuthOutpu
 	return
 }
 
-//AuthLDAPMetadata is the metadata member set by AuthLDAP
+// AuthLDAPMetadata is the metadata member set by AuthLDAP
 type AuthLDAPMetadata struct {
 	Username string `json:"username"`
 }
 
-//AuthLDAP is a shorthand for AuthLDAPMount against the default LDAP mountpoint,
-//'ldap'.
+// AuthLDAP is a shorthand for AuthLDAPMount against the default LDAP mountpoint,
+// 'ldap'.
 func (v *Client) AuthLDAP(username, password string) (ret *AuthOutput, err error) {
 	return v.AuthLDAPMount("ldap", username, password)
 }
 
-//AuthLDAPMount submits the given username and password to the LDAP auth endpoint
-//mounted at the given mountpoint, checking it against existing LDAP auth
-//configurations. If auth is successful, then the AuthOutput object is returned,
-//and this client's AuthToken is set to the returned token. Given mountpoint is
-//relative to /v1/auth.
+// AuthLDAPMount submits the given username and password to the LDAP auth endpoint
+// mounted at the given mountpoint, checking it against existing LDAP auth
+// configurations. If auth is successful, then the AuthOutput object is returned,
+// and this client's AuthToken is set to the returned token. Given mountpoint is
+// relative to /v1/auth.
 func (v *Client) AuthLDAPMount(mount, username, password string) (ret *AuthOutput, err error) {
 	raw := &authOutputRaw{}
 
@@ -210,21 +209,21 @@ func (v *Client) AuthLDAPMount(mount, username, password string) (ret *AuthOutpu
 	return
 }
 
-//AuthUserpassMetadata is the metadata member set by AuthUserpass
+// AuthUserpassMetadata is the metadata member set by AuthUserpass
 type AuthUserpassMetadata struct {
 	Username string `json:"username"`
 }
 
-//AuthUserpass is a shorthand for AuthUserpassMount for the default userpass
+// AuthUserpass is a shorthand for AuthUserpassMount for the default userpass
 // mount point, 'userpass'.
 func (v *Client) AuthUserpass(username, password string) (ret *AuthOutput, err error) {
 	return v.AuthUserpassMount("userpass", username, password)
 }
 
-//AuthUserpass submits the given username and password to the userpass auth
-//endpoint located at the given mount. If a username with that password exists,
-//then the AuthOutput object is returned, and this client's AuthToken is set to
-//the returned token. Given mountpoint is relative to /v1/auth.
+// AuthUserpass submits the given username and password to the userpass auth
+// endpoint located at the given mount. If a username with that password exists,
+// then the AuthOutput object is returned, and this client's AuthToken is set to
+// the returned token. Given mountpoint is relative to /v1/auth.
 func (v *Client) AuthUserpassMount(mount, username, password string) (ret *AuthOutput, err error) {
 	raw := &authOutputRaw{}
 
@@ -251,14 +250,14 @@ func (v *Client) AuthUserpassMount(mount, username, password string) (ret *AuthO
 	return
 }
 
-//AuthApprole performs auth against the given approle mount with the given
+// AuthApprole performs auth against the given approle mount with the given
 // approle ID and secret. If the login is successful, this client's AuthToken is
 // set to the returned token. Given mountpoint is relative to /v1/auth.
 func (v *Client) AuthApprole(roleID, secretID string) (ret *AuthOutput, err error) {
 	return v.AuthApproleMount("approle", roleID, secretID)
 }
 
-//AuthApproleMount performs auth against the given approle mount with the given
+// AuthApproleMount performs auth against the given approle mount with the given
 // approle ID and secret. If the login is successful, this client's AuthToken is
 // set to the returned token.
 func (v *Client) AuthApproleMount(mount, roleID, secretID string) (ret *AuthOutput, err error) {
@@ -291,13 +290,13 @@ func (v *Client) AuthApproleMount(mount, roleID, secretID string) (ret *AuthOutp
 	return
 }
 
-//TokenRenewSelf takes the token in the Client object and attempts to renew its
+// TokenRenewSelf takes the token in the Client object and attempts to renew its
 // lease.
 func (v *Client) TokenRenewSelf() (err error) {
 	return v.doRequest("POST", "/auth/token/renew-self", nil, nil)
 }
 
-//TokenInfo contains metadata about a token. Return values from the Vault API
+// TokenInfo contains metadata about a token. Return values from the Vault API
 // are converted into more easily usable Golang types.
 type TokenInfo struct {
 	Accessor       string
@@ -337,7 +336,7 @@ type tokenInfoRaw struct {
 	} `json:"data"`
 }
 
-//TokenInfoSelf returns the contents of the token self info endpoint of the vault
+// TokenInfoSelf returns the contents of the token self info endpoint of the vault
 func (v *Client) TokenInfoSelf() (ret *TokenInfo, err error) {
 	raw := tokenInfoRaw{}
 	err = v.doRequest("GET", "/auth/token/lookup-self", nil, &raw)
@@ -381,7 +380,7 @@ func (v *Client) TokenInfoSelf() (ret *TokenInfo, err error) {
 	return
 }
 
-//TokenIsValid returns no error if it can look itself up. This can error
+// TokenIsValid returns no error if it can look itself up. This can error
 // if the token is valid but somebody has configured policies such that it can not
 // look itself up. It can also error, of course, if the token is invalid.
 func (v *Client) TokenIsValid() (err error) {

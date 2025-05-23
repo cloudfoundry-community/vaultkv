@@ -6,6 +6,7 @@ vaultVersions=(
 "1.5.6"
 "1.6.4"
 "1.7.1"
+"1.15.0"
 )
 
 if [[ $1 == "latest" ]]; then

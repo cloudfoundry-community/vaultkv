@@ -102,7 +102,7 @@ func (s1 semver) LessThan(s2 semver) bool {
 	return s1.patch < s2.patch
 }
 
-//The current vault client used by each spec
+// The current vault client used by each spec
 var vault *vaultkv.Client
 var err error
 

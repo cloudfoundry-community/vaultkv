@@ -8,9 +8,9 @@ import (
 	"regexp"
 )
 
-//GenerateRoot has functions for generating a new root token. Create this
-//object with NewGenerateRoot(). That function performs the necessary
-//initialization for the process
+// GenerateRoot has functions for generating a new root token. Create this
+// object with NewGenerateRoot(). That function performs the necessary
+// initialization for the process
 type GenerateRoot struct {
 	client *Client
 	otp    []byte
@@ -20,7 +20,7 @@ type GenerateRoot struct {
 	state            GenerateRootState
 }
 
-//GenerateRootState contains state information about the GenerateRoot operation
+// GenerateRootState contains state information about the GenerateRoot operation
 type GenerateRootState struct {
 	Started  bool   `json:"started"`
 	Nonce    string `json:"nonce"`
@@ -38,7 +38,7 @@ type GenerateRootState struct {
 	Complete  bool   `json:"complete"`
 }
 
-//NewGenerateRoot initializes and returns a new generate root object.
+// NewGenerateRoot initializes and returns a new generate root object.
 func (v *Client) NewGenerateRoot() (*GenerateRoot, error) {
 	ret := GenerateRoot{
 		client: v,
@@ -93,17 +93,17 @@ func (v *Client) NewGenerateRoot() (*GenerateRoot, error) {
 
 var genRootRegexp = regexp.MustCompile("no root generation in progress")
 
-//Submit gives keys to the generate root token operation specified by this
-//*GenerateRoot object. Any keys beyond the current required amount are
-//ignored. If the Rekey is successful after all keys have been sent, then done
-//will be returned as true. If the threshold is reached and any of the keys
-//were incorrect, an *ErrBadRequest is returned and done is false. In this
-//case, the generate root is not cancelled, but is instead reset. No error is
-//given for an incorrect key before the threshold is reached. An *ErrBadRequest
-//may also be returned if there is no longer any generate root token operation
-//in progress, but in this case, done will be returned as true. To retrieve the
-//new keys after submitting enough existing keys, call RootToken() on the
-//GenerateRoot object.
+// Submit gives keys to the generate root token operation specified by this
+// *GenerateRoot object. Any keys beyond the current required amount are
+// ignored. If the Rekey is successful after all keys have been sent, then done
+// will be returned as true. If the threshold is reached and any of the keys
+// were incorrect, an *ErrBadRequest is returned and done is false. In this
+// case, the generate root is not cancelled, but is instead reset. No error is
+// given for an incorrect key before the threshold is reached. An *ErrBadRequest
+// may also be returned if there is no longer any generate root token operation
+// in progress, but in this case, done will be returned as true. To retrieve the
+// new keys after submitting enough existing keys, call RootToken() on the
+// GenerateRoot object.
 func (g *GenerateRoot) Submit(keys ...string) (done bool, err error) {
 	for _, key := range keys {
 		g.state, err = g.client.genRootSubmit(key, g.state.Nonce)
@@ -130,12 +130,12 @@ func (g *GenerateRoot) Submit(keys ...string) (done bool, err error) {
 	return g.state.Complete, nil
 }
 
-//Cancel cancels the current generate root operation
+// Cancel cancels the current generate root operation
 func (g *GenerateRoot) Cancel() error {
 	return g.client.GenerateRootCancel()
 }
 
-//GenerateRootCancel cancels the current generate root operation
+// GenerateRootCancel cancels the current generate root operation
 func (v *Client) GenerateRootCancel() error {
 	return v.doSysRequest("DELETE", "/sys/generate-root/attempt", nil, nil)
 }
@@ -157,22 +157,22 @@ func (v *Client) genRootSubmit(key string, nonce string) (ret GenerateRootState,
 	return
 }
 
-//Remaining returns the number of keys yet required by this generate root token
-//operation. This does not refresh state, and only reflects the last action of
-//this GenerateRoot object.
+// Remaining returns the number of keys yet required by this generate root token
+// operation. This does not refresh state, and only reflects the last action of
+// this GenerateRoot object.
 func (g *GenerateRoot) Remaining() int {
 	return g.state.Required - g.state.Progress
 }
 
-//State returns the current state of the generate root operation. This does not
-//refresh state, and only reflects the last action of this GenerateRoot object.
+// State returns the current state of the generate root operation. This does not
+// refresh state, and only reflects the last action of this GenerateRoot object.
 func (g *GenerateRoot) State() GenerateRootState {
 	return g.state
 }
 
-//RootToken returns the new root token from this operation if the operation has
-//been successful. The return value is undefined if the operation is not yet
-//successful.
+// RootToken returns the new root token from this operation if the operation has
+// been successful. The return value is undefined if the operation is not yet
+// successful.
 func (g *GenerateRoot) RootToken() (string, error) {
 	rawTok := g.state.EncodedToken
 	if rawTok == "" {

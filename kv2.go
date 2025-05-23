@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//Use some heuristics to determine what is the most likely mount path if Vault won't
+// Use some heuristics to determine what is the most likely mount path if Vault won't
 // tell us with its old, crusty version
 func mountPathDefault(path string) string {
 	path = strings.TrimLeft(path, "/")
@@ -23,10 +23,10 @@ func mountPathDefault(path string) string {
 	return fmt.Sprintf("%s%s", prefix, strings.Split(path, "/")[0])
 }
 
-//IsKVv2Mount returns true if the mount is a version 2 KV mount and false
-//otherwise. This will also simply return false if no mount exists at the given
-//mount point or if the Vault is too old to have the API endpoint to look for
-//the mount. If a different API error occurs, it will be propagated out.
+// IsKVv2Mount returns true if the mount is a version 2 KV mount and false
+// otherwise. This will also simply return false if no mount exists at the given
+// mount point or if the Vault is too old to have the API endpoint to look for
+// the mount. If a different API error occurs, it will be propagated out.
 func (c *Client) IsKVv2Mount(path string) (mountPath string, isV2 bool, err error) {
 	path = strings.TrimPrefix(path, "/")
 	output := struct {
@@ -85,7 +85,7 @@ func (c *Client) IsKVv2Mount(path string) (mountPath string, isV2 bool, err erro
 	return
 }
 
-//V2Version is information about a version of a secret. The DeletedAt member
+// V2Version is information about a version of a secret. The DeletedAt member
 // will be nil to signify that a version is not deleted. Take note of the
 // difference between "deleted" and "destroyed" - a deletion simply marks a
 // secret as deleted, preventing it from being read. A destruction actually
@@ -120,18 +120,18 @@ func (v v2VersionAPI) Parse() V2Version {
 	return ret
 }
 
-//V2GetOpts are options to specify in a V2Get request.
+// V2GetOpts are options to specify in a V2Get request.
 type V2GetOpts struct {
 	// Version is the version of the resource to retrieve. Setting this to zero (or
 	// not setting it at all) will retrieve the latest version
 	Version uint
 }
 
-//V2Get will get a secret from the given path in a KV version 2 secrets backend.
-//If the secret is at "/bar" in the backend mounted at "foo", then the path
-//should be "foo/bar". The response will be decoded into the item pointed to
-//by output using encoding/json.Unmarshal semantics. The version to retrieve
-//can be selected by setting Version in the V2GetOpts struct at opts.
+// V2Get will get a secret from the given path in a KV version 2 secrets backend.
+// If the secret is at "/bar" in the backend mounted at "foo", then the path
+// should be "foo/bar". The response will be decoded into the item pointed to
+// by output using encoding/json.Unmarshal semantics. The version to retrieve
+// can be selected by setting Version in the V2GetOpts struct at opts.
 func (c *Client) V2Get(mount, subpath string, output interface{}, opts *V2GetOpts) (meta V2Version, err error) {
 	if output != nil &&
 		reflect.ValueOf(output).Kind() != reflect.Ptr {
@@ -168,12 +168,12 @@ func (c *Client) V2Get(mount, subpath string, output interface{}, opts *V2GetOpt
 	return
 }
 
-//V2List returns the list of paths nested directly under the given path. If this
-//is not a "directory" for any paths, then ErrNotFound is returned. In the list
-//of paths returned on success, if a path ends with a slash, then it is also a
-//"directory". The Vault must be unsealed and initialized for this endpoint to
-//work. No assumptions are made about the mounting point of your Key/Value
-//backend.
+// V2List returns the list of paths nested directly under the given path. If this
+// is not a "directory" for any paths, then ErrNotFound is returned. In the list
+// of paths returned on success, if a path ends with a slash, then it is also a
+// "directory". The Vault must be unsealed and initialized for this endpoint to
+// work. No assumptions are made about the mounting point of your Key/Value
+// backend.
 func (c *Client) V2List(mount, subpath string) ([]string, error) {
 	ret := []string{}
 	path := fmt.Sprintf("%s/metadata/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))
@@ -194,7 +194,7 @@ func (c *Client) V2List(mount, subpath string) ([]string, error) {
 	return ret, err
 }
 
-//V2SetOpts are options that can be specified to a V2Set call
+// V2SetOpts are options that can be specified to a V2Set call
 type V2SetOpts struct {
 	//CAS provides a check-and-set version number. If this is set to zero, then
 	// the value will only be written if the key does not yet exist. If the CAS
@@ -203,20 +203,20 @@ type V2SetOpts struct {
 	CAS *uint `json:"cas,omitempty"`
 }
 
-//WithCAS returns a pointer to a new V2SetOpts with the CAS value set to the
-//given value. If i is zero, then the value will only be written if the key
-//does not exist. If i is non-zero, then the value will only be written if the
-//currently existing version matches i. Not calling CAS will result in no
-//restriction on writing. If the mount is set up for requiring CAS, then not
-//setting CAS with this function a valid number will result in a failure when
-//attempting to write.
+// WithCAS returns a pointer to a new V2SetOpts with the CAS value set to the
+// given value. If i is zero, then the value will only be written if the key
+// does not exist. If i is non-zero, then the value will only be written if the
+// currently existing version matches i. Not calling CAS will result in no
+// restriction on writing. If the mount is set up for requiring CAS, then not
+// setting CAS with this function a valid number will result in a failure when
+// attempting to write.
 func (s V2SetOpts) WithCAS(i uint) *V2SetOpts {
 	s.CAS = new(uint)
 	*s.CAS = i
 	return &s
 }
 
-//V2Set uses encoding/json.Marshal on the object given in values to encode
+// V2Set uses encoding/json.Marshal on the object given in values to encode
 // the secret as JSON, and writes it to the path given. Populate ops to use the
 // check-and-set functionality. Returns the metadata about the written secret
 // if the write is successful.
@@ -246,12 +246,12 @@ func (c *Client) V2Set(mount, subpath string, values interface{}, opts *V2SetOpt
 	return
 }
 
-//V2DeleteOpts are options that can be provided to a V2Delete call.
+// V2DeleteOpts are options that can be provided to a V2Delete call.
 type V2DeleteOpts struct {
 	Versions []uint `json:"versions"`
 }
 
-//V2Delete marks a secret version at the given path as deleted. If opts is not
+// V2Delete marks a secret version at the given path as deleted. If opts is not
 // provided or the Versions slice therein is left nil, the latest version is
 // deleted. Otherwise, the specified versions are deleted. Note that the deleted
 // data from this call is recoverable from a call to V2Undelete.
@@ -269,7 +269,7 @@ func (c *Client) V2Delete(mount, subpath string, opts *V2DeleteOpts) error {
 	return c.doRequest(method, path, opts, nil)
 }
 
-//V2Undelete marks the specified versions at the specified paths as not deleted.
+// V2Undelete marks the specified versions at the specified paths as not deleted.
 func (c *Client) V2Undelete(mount, subpath string, versions []uint) error {
 	path := fmt.Sprintf("%s/undelete/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))
 	return c.doRequest("POST", path, struct {
@@ -279,7 +279,7 @@ func (c *Client) V2Undelete(mount, subpath string, versions []uint) error {
 	}, nil)
 }
 
-//V2Destroy permanently deletes the specified versions at the specified path.
+// V2Destroy permanently deletes the specified versions at the specified path.
 func (c *Client) V2Destroy(mount, subpath string, versions []uint) error {
 	path := fmt.Sprintf("%s/destroy/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))
 	return c.doRequest("POST", path, struct {
@@ -289,14 +289,14 @@ func (c *Client) V2Destroy(mount, subpath string, versions []uint) error {
 	}, nil)
 }
 
-//V2DestroyMetadata permanently destroys all secret versions and all metadata
+// V2DestroyMetadata permanently destroys all secret versions and all metadata
 // associated with the secret at the specified path.
 func (c *Client) V2DestroyMetadata(mount, subpath string) error {
 	path := fmt.Sprintf("%s/metadata/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))
 	return c.doRequest("DELETE", path, nil, nil)
 }
 
-//V2Metadata is the metadata associated with a secret
+// V2Metadata is the metadata associated with a secret
 type V2Metadata struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -320,9 +320,9 @@ type v2MetadataAPI struct {
 	} `json:"data"`
 }
 
-//Version returns the version with the given number in the metadata as a
-//V2Version object , if present. If no version with that number is present, an
-//error is returned.
+// Version returns the version with the given number in the metadata as a
+// V2Version object , if present. If no version with that number is present, an
+// error is returned.
 func (m V2Metadata) Version(number uint) (version V2Version, err error) {
 	if len(m.Versions) == 0 {
 		err = fmt.Errorf("That version does not exist in the metadata")
@@ -364,7 +364,7 @@ func (m v2MetadataAPI) Parse() V2Metadata {
 	return ret
 }
 
-//V2GetMetadata gets the metadata associated with the secret at the specified
+// V2GetMetadata gets the metadata associated with the secret at the specified
 // path.
 func (c *Client) V2GetMetadata(mount, subpath string) (meta V2Metadata, err error) {
 	path := fmt.Sprintf("%s/metadata/%s", strings.Trim(mount, "/"), strings.Trim(subpath, "/"))

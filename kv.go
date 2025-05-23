@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//KV provides an abstraction to the Vault tree which makes dealing with
+// KV provides an abstraction to the Vault tree which makes dealing with
 // the potential of both KV v1 and KV v2 backends easier to work with.
 // KV v1 backends are exposed through this interface much like KV v2
 // backends with only one version. There are limitations around Delete
@@ -33,9 +33,13 @@ type kvMount interface {
 	MountVersion() (version uint)
 }
 
-/*====================
-        KV V1
-====================*/
+/*
+====================
+
+	KV V1
+
+====================
+*/
 type kvv1Mount struct {
 	client *Client
 }
@@ -121,9 +125,13 @@ func (k kvv1Mount) MountVersion() (version uint) {
 	return 1
 }
 
-/*====================
-        KV V2
-====================*/
+/*
+====================
+
+	KV V2
+
+====================
+*/
 type kvv2Mount struct {
 	client *Client
 }
@@ -206,7 +214,7 @@ func (k kvv2Mount) MountVersion() (version uint) {
        KV Abstraction
 ==========================*/
 
-//NewKV returns an initialized KV object.
+// NewKV returns an initialized KV object.
 func (v *Client) NewKV() *KV {
 	return &KV{Client: v, mounts: map[string]kvMount{}}
 }
@@ -265,14 +273,14 @@ func subtractMount(mount string, path string) string {
 	return ret
 }
 
-//KVGetOpts are options applicable to KV.Get
+// KVGetOpts are options applicable to KV.Get
 type KVGetOpts struct {
 	// Version is the version of the resource to retrieve. Setting this to zero (or
 	// not setting it at all) will retrieve the latest version
 	Version uint
 }
 
-//KVVersion contains information about a version of a secret.
+// KVVersion contains information about a version of a secret.
 type KVVersion struct {
 	//If KV version is 1, CreatedAt.IsZero() will be true
 	CreatedAt time.Time
@@ -281,14 +289,14 @@ type KVVersion struct {
 	Destroyed bool
 }
 
-//Alive returns if the KVVersion is not deleted or destroyed.
+// Alive returns if the KVVersion is not deleted or destroyed.
 func (k KVVersion) Alive() bool {
 	return !(k.Deleted || k.Destroyed)
 }
 
-//Get retrieves the value at the given path in the tree. This follows the
-//semantics of Client.Get or Client.V2Get, chosen based on the backend mounted
-//at the path given.
+// Get retrieves the value at the given path in the tree. This follows the
+// semantics of Client.Get or Client.V2Get, chosen based on the backend mounted
+// at the path given.
 func (k *KV) Get(path string, output interface{}, opts *KVGetOpts) (meta KVVersion, err error) {
 	mountPath, mount, err := k.mountForPath(path)
 	if err != nil {
@@ -299,9 +307,9 @@ func (k *KV) Get(path string, output interface{}, opts *KVGetOpts) (meta KVVersi
 	return mount.Get(mountPath, path, output, opts)
 }
 
-//List retrieves the paths under the given path. If the path does not exist or
-//it is not a folder, ErrNotFound is thrown. Results ending with a slash are
-//folders.
+// List retrieves the paths under the given path. If the path does not exist or
+// it is not a folder, ErrNotFound is thrown. Results ending with a slash are
+// folders.
 func (k *KV) List(path string) (paths []string, err error) {
 	mountPath, mount, err := k.mountForPath(path)
 	if err != nil {
@@ -312,13 +320,13 @@ func (k *KV) List(path string) (paths []string, err error) {
 	return mount.List(mountPath, path)
 }
 
-//KVSetOpts are the options for a set call to the KV.Set() call. Currently there
+// KVSetOpts are the options for a set call to the KV.Set() call. Currently there
 // are none, but it exists in case the API adds support in the future for things
 // that we can put here.
 type KVSetOpts struct{}
 
-//Set puts the values given at the path given. If KV v1, the previous value, if
-//any, is overwritten.  If KV v2, a new version is created.
+// Set puts the values given at the path given. If KV v1, the previous value, if
+// any, is overwritten.  If KV v2, a new version is created.
 func (k *KV) Set(path string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
 	mountPath, mount, err := k.mountForPath(path)
 	if err != nil {
@@ -329,7 +337,7 @@ func (k *KV) Set(path string, values interface{}, opts *KVSetOpts) (meta KVVersi
 	return mount.Set(mountPath, path, values, opts)
 }
 
-//KVDeleteOpts are options applicable to KV.Delete
+// KVDeleteOpts are options applicable to KV.Delete
 type KVDeleteOpts struct {
 	//Versions are the versions of the secret to delete. If left nil,
 	// the latest version is deleted.
@@ -341,7 +349,7 @@ type KVDeleteOpts struct {
 	V1Destroy bool
 }
 
-//Delete attempts to mark the secret at the given path (and version) as deleted.
+// Delete attempts to mark the secret at the given path (and version) as deleted.
 // For KV v1, temporarily deleting a secret is not possible. Use the V1Destroy
 // option as a way to safeguard against unwanted destruction of secrets.
 func (k *KV) Delete(path string, opts *KVDeleteOpts) (err error) {
@@ -354,7 +362,7 @@ func (k *KV) Delete(path string, opts *KVDeleteOpts) (err error) {
 	return mount.Delete(mountPath, path, opts)
 }
 
-//Undelete attempts to unmark deletion on a previously deleted version.
+// Undelete attempts to unmark deletion on a previously deleted version.
 // KV v1 backends cannot do this, and so if the backend is KV v1, this
 // returns an ErrKVUnsupported.
 func (k *KV) Undelete(path string, versions []uint) (err error) {
@@ -367,7 +375,7 @@ func (k *KV) Undelete(path string, versions []uint) (err error) {
 	return mount.Undelete(mountPath, path, versions)
 }
 
-//Destroy attempts to irrevocably delete the given versions at the given
+// Destroy attempts to irrevocably delete the given versions at the given
 // path. For KV v1 backends, this is a call to Client.Delete. for KV v2
 // backends, this is a call to Client.V2Destroy
 func (k *KV) Destroy(path string, versions []uint) (err error) {
@@ -380,7 +388,7 @@ func (k *KV) Destroy(path string, versions []uint) (err error) {
 	return mount.Destroy(mountPath, path, versions)
 }
 
-//DestroyAll attempts to irrevocably delete all versions of the secret
+// DestroyAll attempts to irrevocably delete all versions of the secret
 // at the given path. For KV v1 backends, this is a call to Client.Delete.
 // For v2 backends, this is a call to Client.V2DestroyMetadata
 func (k *KV) DestroyAll(path string) (err error) {
@@ -393,7 +401,7 @@ func (k *KV) DestroyAll(path string) (err error) {
 	return mount.DestroyAll(mountPath, path)
 }
 
-//Versions returns the versions of the secret available. If no secret
+// Versions returns the versions of the secret available. If no secret
 // exists at this path, ErrNotFound is returned. If the secret exists
 // and this is a KV v1 backend, one version is returned.
 func (k *KV) Versions(path string) (ret []KVVersion, err error) {
@@ -406,7 +414,7 @@ func (k *KV) Versions(path string) (ret []KVVersion, err error) {
 	return mount.Versions(mountPath, path)
 }
 
-//MountVersion returns the KV version of the mount for the given path.
+// MountVersion returns the KV version of the mount for the given path.
 // v1 mounts return 1; v2 mounts return 2.
 func (k *KV) MountVersion(mount string) (version uint, err error) {
 	_, m, err := k.mountForPath(mount)
@@ -417,7 +425,7 @@ func (k *KV) MountVersion(mount string) (version uint, err error) {
 	return m.MountVersion(), nil
 }
 
-//MountPath returns the path of the mount on which the given path is mounted.
+// MountPath returns the path of the mount on which the given path is mounted.
 // If no such mount can be found, an error is returned.
 func (k *KV) MountPath(path string) (mount string, err error) {
 	mount, _, err = k.mountForPath(path)

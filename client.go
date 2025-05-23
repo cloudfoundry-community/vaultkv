@@ -15,7 +15,7 @@ import (
 	"sync"
 )
 
-//Client provides functions that access and abstract the Vault API.
+// Client provides functions that access and abstract the Vault API.
 // VaultURL must be set to the for the client to work. Only Vault versions
 // 0.6.5 and above are tested to work with this client.
 type Client struct {
@@ -37,7 +37,7 @@ type vaultResponse struct {
 	//There's totally more to the response, but this is all I care about atm.
 }
 
-//URL encoded values can be given as a *url.Values as "input" when performing
+// URL encoded values can be given as a *url.Values as "input" when performing
 // a GET call
 func (v *Client) doRequest(
 	method, path string,
@@ -84,7 +84,7 @@ func (v *Client) doRequest(
 	return err
 }
 
-//Curl takes the given path, prepends <VaultURL>/v1/ to it, and makes the request
+// Curl takes the given path, prepends <VaultURL>/v1/ to it, and makes the request
 // with the remainder of the given parameters. Errors returned only reflect
 // transport errors, not HTTP semantic errors
 func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.Reader) (*http.Response, error) {

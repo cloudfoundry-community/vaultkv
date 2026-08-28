@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -42,7 +41,7 @@ type vaultResponse struct {
 func (v *Client) doRequest(
 	method, path string,
 	input interface{},
-	output interface{}) error {
+	output interface{}) (err error) {
 
 	var query url.Values
 	var body io.Reader
@@ -63,7 +62,17 @@ func (v *Client) doRequest(
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Drain (bounded) so the connection returns to the keep-alive
+		// pool; an unread error body otherwise costs the TCP+TLS
+		// connection. Surface a drain error only when nothing earlier
+		// failed, preserving the old ReadAll's truncation signal.
+		_, derr := io.CopyN(io.Discard, resp.Body, 4<<10)
+		resp.Body.Close()
+		if err == nil && derr != nil && derr != io.EOF {
+			err = derr
+		}
+	}()
 
 	if resp.StatusCode/100 != 2 {
 		return v.parseError(resp)
@@ -79,9 +88,7 @@ func (v *Client) doRequest(
 		}
 	}
 
-	_, err = ioutil.ReadAll(resp.Body)
-
-	return err
+	return nil
 }
 
 //Curl takes the given path, prepends <VaultURL>/v1/ to it, and makes the request
@@ -139,7 +146,9 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("transport err", err.Error())
+		if v.Trace != nil {
+			_, _ = v.Trace.Write([]byte(fmt.Sprintf("transport err %s\n", err.Error())))
+		}
 		return nil, &ErrTransport{message: err.Error()}
 	}
 

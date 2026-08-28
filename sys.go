@@ -3,7 +3,7 @@ package vaultkv
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"strings"
 )
@@ -204,7 +204,7 @@ func (v *Client) ResetUnseal() (err error) {
 //Vault is not yet initialized, ErrUninitialized will be returned. If the Vault
 //is initialized but sealed, then ErrSealed will be returned. If none of these
 //are the case, no error is returned.
-func (v *Client) Health(standbyok bool) error {
+func (v *Client) Health(standbyok bool) (err error) {
 	//Don't call doRequest from Health because ParseError calls Health
 	query := url.Values{}
 	if standbyok {
@@ -216,13 +216,20 @@ func (v *Client) Health(standbyok bool) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		// Drain (bounded) so the connection returns to the keep-alive
+		// pool; an unread error body otherwise costs the TCP+TLS
+		// connection. Surface a drain error only when nothing earlier
+		// failed, preserving the old ReadAll's truncation signal.
+		_, derr := io.CopyN(io.Discard, resp.Body, 4<<10)
+		resp.Body.Close()
+		if err == nil && derr != nil && derr != io.EOF {
+			err = derr
+		}
+	}()
 
 	errorsStruct := apiError{}
 	err = json.NewDecoder(resp.Body).Decode(&errorsStruct)
-	if err != nil {
-		return err
-	}
-	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

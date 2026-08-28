@@ -231,7 +231,9 @@ func (v *Client) parseError(r *http.Response) (err error) {
 func (v *Client) parse503(message string) (err error) {
 	err = v.Health(true)
 	if err == nil {
-		return nil
+		// The original request still got a 503; a Vault that reports
+		// itself healthy on re-check must not turn that into success.
+		return errors.New(message)
 	}
 
 	switch e := err.(type) {

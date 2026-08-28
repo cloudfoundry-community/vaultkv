@@ -20,7 +20,15 @@ import (
 type Client struct {
 	AuthToken string
 	VaultURL  *url.URL
-	//If Client is nil, http.DefaultClient will be used
+	//If Client is nil, http.DefaultClient will be used.
+	//
+	//Note that vaultkv writes a CheckRedirect into whichever http.Client it
+	//ends up using, on the first request, so that a Vault redirect carries
+	//the current auth token. A CheckRedirect already set on the client is
+	//left alone. Callers that share this http.Client with other code should
+	//know that: the field is written once, and a caller calling Do on the
+	//same client concurrently with vaultkv's first request reads it while it
+	//is being written.
 	Client *http.Client
 	//If Trace is non-nil, information about HTTP requests will be given into the
 	//Writer.

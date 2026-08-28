@@ -25,11 +25,14 @@ func newTestClient(t *testing.T, rawURL string) *vaultkv.Client {
 		t.Fatalf("could not parse URL %q: %s", rawURL, err)
 	}
 
-	return &vaultkv.Client{
+	client := &vaultkv.Client{
 		VaultURL:  u,
 		AuthToken: "t",
 		Client:    &http.Client{Transport: &http.Transport{}},
 	}
+	t.Cleanup(client.Client.CloseIdleConnections)
+
+	return client
 }
 
 // clientGet is a thin wrapper over the simplest exported call that reaches
@@ -171,6 +174,13 @@ func TestErrorResponsesCurlWritesTransportErrorsToTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create pipe: %s", err)
 	}
+	// os.Stdout is process-wide: hand it back even if what follows panics,
+	// or every later test in the run writes into a dead pipe.
+	defer func() {
+		os.Stdout = origStdout
+		_ = w.Close()
+		_ = r.Close()
+	}()
 	os.Stdout = w
 
 	var trace bytes.Buffer
@@ -183,8 +193,8 @@ func TestErrorResponsesCurlWritesTransportErrorsToTrace(t *testing.T) {
 
 	_, curlErr := client.Curl("GET", "secret/foo", nil, nil)
 
+	// Close the write end so the read below sees EOF rather than blocking.
 	w.Close()
-	os.Stdout = origStdout
 	var captured bytes.Buffer
 	_, _ = io.Copy(&captured, r)
 

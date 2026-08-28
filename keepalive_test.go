@@ -117,6 +117,40 @@ func TestErrorResponsesParse503NeverMasksSealed(t *testing.T) {
 	}
 }
 
+// Every other branch of parseError yields one of the library's own error
+// types, so an unexplained 503 must too: callers switching on the error type
+// otherwise fall through to their default branch and cannot tell a Vault that
+// is briefly unavailable from anything else that went wrong.
+func TestErrorResponsesParse503ReturnsTypedError(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/sys/health") {
+			w.WriteHeader(200)
+			w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(503)
+		w.Write([]byte(`{"errors":["vault is temporarily unavailable"]}`))
+	})
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	client := newTestClient(t, srv.URL)
+
+	var out map[string]interface{}
+	err := clientGet(client, "secret/foo", &out)
+	if err == nil {
+		t.Fatal("want an error for a 503 response, got nil")
+	}
+	if !vaultkv.IsTemporarilyUnavailable(err) {
+		t.Fatalf("want an *vaultkv.ErrTemporarilyUnavailable, got %T: %s", err, err)
+	}
+	if !strings.Contains(err.Error(), "vault is temporarily unavailable") {
+		t.Errorf("want Vault's own message carried through, got %q", err.Error())
+	}
+}
+
 // Curl must never write transport errors to stdout; it should route them to
 // Trace when set, and stay silent when Trace is nil.
 func TestErrorResponsesCurlWritesTransportErrorsToTrace(t *testing.T) {

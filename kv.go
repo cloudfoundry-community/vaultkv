@@ -263,33 +263,53 @@ func (k *KV) mountForPath(path string) (mountPath string, ret kvMount, err error
 		k.inflight[segment] = ch
 		k.lock.Unlock()
 
-		//Resolve the mount with no lock held, so concurrent lookups for
-		//different segments perform their HTTP round trips in parallel
-		//instead of serializing behind k.lock. A plain "=" is required here:
-		//":=" inside this block would declare new, block-scoped
-		//mountPath/err that shadow the named returns above and send the
-		//caller back an empty mount path.
-		var isV2 bool
-		mountPath, isV2, err = k.Client.IsKVv2Mount(path)
+		return k.resolveMount(path, segment, ch)
+	}
+}
 
+// resolveMount performs the mount lookup for path with no lock held, so
+// concurrent lookups for different segments perform their HTTP round trips in
+// parallel instead of serializing behind k.lock. The caller must have already
+// registered ch as the inflight entry for segment.
+//
+// The registration is released on every exit path, including a panic: a leader
+// that unwound without closing ch would leave the entry in the map and park
+// every later caller under that segment on a channel nothing ever closes, for
+// the life of the process.
+//
+// A plain "=" is required for the lookup below. ":=" would declare new,
+// block-scoped mountPath/err that shadow the named returns and send the caller
+// back an empty mount path.
+func (k *KV) resolveMount(path, segment string, ch chan struct{}) (mountPath string, ret kvMount, err error) {
+	resolved := false
+	defer func() {
 		k.lock.Lock()
-		if err == nil {
-			ret = kvv1Mount{k.Client}
-			if isV2 {
-				ret = kvv2Mount{k.Client}
-			}
-			//Two different segments can both resolve to, and store, the
-			//same mount path here, since their lookups are not mutually
-			//exclusive of each other. That is harmless as long as Vault's
-			//mount table did not change between the two round trips; if it
-			//did, whichever result is stored last wins.
+		if resolved {
+			// Two different segments can both resolve to, and store, the
+			// same mount path here, since their lookups are not mutually
+			// exclusive of each other. That is harmless as long as Vault's
+			// mount table did not change between the two round trips; if it
+			// did, whichever result is stored last wins.
 			k.mounts[mountPath] = ret
 		}
 		delete(k.inflight, segment)
 		close(ch)
 		k.lock.Unlock()
+	}()
+
+	var isV2 bool
+	mountPath, isV2, err = k.Client.IsKVv2Mount(path)
+	if err != nil {
 		return
 	}
+
+	ret = kvv1Mount{k.Client}
+	if isV2 {
+		ret = kvv2Mount{k.Client}
+	}
+	resolved = true
+
+	return
 }
 
 func subtractMount(mount string, path string) string {

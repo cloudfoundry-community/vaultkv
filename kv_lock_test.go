@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	vaultkv "github.com/cloudfoundry-community/vaultkv"
 )
 
 // mountLockBarrier parks the first `need` matching arrivals until all of
@@ -121,5 +123,53 @@ func TestMountLock(t *testing.T) {
 		if err != nil {
 			t.Errorf("Get(%q) returned error: %v", paths[i], err)
 		}
+	}
+}
+
+// runRecovered runs fn in its own goroutine, swallowing any panic it raises,
+// and reports whether it returned within timeout. A single-flight leader that
+// dies mid-lookup must not strand the callers parked behind it, so every wait
+// here is bounded: a regression fails the test rather than hanging the suite.
+func runRecovered(timeout time.Duration, fn func()) bool {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer func() { _ = recover() }()
+		fn()
+	}()
+
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// TestMountLookupPanicDoesNotPoisonSegment proves that the single-flight
+// bookkeeping is released even when the leader's mount lookup does not return
+// normally. The leader registers a channel for its path's first segment and
+// every later caller under that segment waits on it, so cleanup that only runs
+// on the ordinary return path leaves the channel unclosed and the entry in the
+// map: the segment then blocks every subsequent caller for the life of the
+// process.
+//
+// A nil VaultURL makes Curl panic inside IsKVv2Mount; that is only the cheapest
+// way to raise a panic there, and any other would poison the segment alike.
+func TestMountLookupPanicDoesNotPoisonSegment(t *testing.T) {
+	kv := (&vaultkv.Client{}).NewKV()
+
+	if !runRecovered(5*time.Second, func() {
+		var out map[string]string
+		_, _ = kv.Get("poisoned/secret", &out, nil)
+	}) {
+		t.Fatal("leader never returned; expected it to panic and unwind")
+	}
+
+	if !runRecovered(5*time.Second, func() {
+		var out map[string]string
+		_, _ = kv.Get("poisoned/other", &out, nil)
+	}) {
+		t.Fatal("segment poisoned: a later caller blocked on the dead leader's channel")
 	}
 }

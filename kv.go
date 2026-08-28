@@ -70,6 +70,8 @@ func (k kvv1Mount) List(mount, subpath string) (paths []string, err error) {
 	return k.client.List(path)
 }
 
+//Set writes the values to the path. KV v1 backends have no versioning, so
+// any CAS in opts is ignored.
 func (k kvv1Mount) Set(mount, subpath string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
 	path := v1ConstructPath(mount, subpath)
 	err = k.client.Set(path, values)
@@ -157,8 +159,15 @@ func (k kvv2Mount) List(mount, subpath string) (paths []string, err error) {
 }
 
 func (k kvv2Mount) Set(mount, subpath string, values interface{}, opts *KVSetOpts) (meta KVVersion, err error) {
+	var o *V2SetOpts
+	if opts != nil && opts.CAS != nil {
+		o = &V2SetOpts{
+			CAS: opts.CAS,
+		}
+	}
+
 	var m V2Version
-	m, err = k.client.V2Set(mount, subpath, values, nil)
+	m, err = k.client.V2Set(mount, subpath, values, o)
 	if err == nil {
 		meta.Version = m.Version
 		meta.CreatedAt = m.CreatedAt
@@ -282,14 +291,25 @@ func (k *KV) mountForPath(path string) (mountPath string, ret kvMount, err error
 // back an empty mount path.
 func (k *KV) resolveMount(path, segment string, ch chan struct{}) (mountPath string, ret kvMount, err error) {
 	resolved := false
+	var versions map[string]bool
 	defer func() {
 		k.lock.Lock()
 		if resolved {
-			// Two different segments can both resolve to, and store, the
-			// same mount path here, since their lookups are not mutually
-			// exclusive of each other. That is harmless as long as Vault's
-			// mount table did not change between the two round trips; if it
-			// did, whichever result is stored last wins.
+			// The table fetch answered for every mount visible to the
+			// token, not just the one asked about, so cache them all:
+			// later lookups under other segments then cost no round trip
+			// at all. Two concurrent leaders for different segments can
+			// both store this same table, since their lookups are not
+			// mutually exclusive of each other. That is harmless as long
+			// as Vault's mount table did not change between the two round
+			// trips; if it did, whichever result is stored last wins.
+			for mount, isV2 := range versions {
+				entry := kvMount(kvv1Mount{k.Client})
+				if isV2 {
+					entry = kvv2Mount{k.Client}
+				}
+				k.mounts[mount] = entry
+			}
 			k.mounts[mountPath] = ret
 		}
 		delete(k.inflight, segment)
@@ -297,10 +317,16 @@ func (k *KV) resolveMount(path, segment string, ch chan struct{}) (mountPath str
 		k.lock.Unlock()
 	}()
 
-	var isV2 bool
-	mountPath, isV2, err = k.Client.IsKVv2Mount(path)
+	versions, err = k.Client.kvMountVersions()
 	if err != nil {
 		return
+	}
+
+	var isV2 bool
+	mountPath = strings.Trim(mountPathDefault(path), "/")
+	if m, v2, found := findKVMount(strings.TrimPrefix(path, "/"), versions); found {
+		mountPath = m
+		isV2 = v2
 	}
 
 	ret = kvv1Mount{k.Client}
@@ -369,10 +395,16 @@ func (k *KV) List(path string) (paths []string, err error) {
 	return mount.List(mountPath, path)
 }
 
-//KVSetOpts are the options for a set call to the KV.Set() call. Currently there
-// are none, but it exists in case the API adds support in the future for things
-// that we can put here.
-type KVSetOpts struct{}
+//KVSetOpts are the options for a set call to the KV.Set() call.
+type KVSetOpts struct {
+	//CAS, if non-nil, asks the backend to perform a check-and-set write. If
+	// it points to zero, the value is only written if the key does not yet
+	// exist. If it points to a non-zero number, the value is only written if
+	// the current version of the secret matches that number; a mismatch is
+	// reported as an ErrBadRequest for which IsCASConflict returns true.
+	// KV v1 backends have no versioning and ignore this entirely.
+	CAS *uint
+}
 
 //Set puts the values given at the path given. If KV v1, the previous value, if
 //any, is overwritten.  If KV v2, a new version is created.

@@ -54,6 +54,17 @@ func (v *Client) installRedirectPolicy(client *http.Client) {
 		if len(via) > 10 {
 			return fmt.Errorf("Stopped after 10 redirects")
 		}
+		// Stamp the token only on a hop to the configured Vault. When
+		// Client.Client is nil this policy lands on http.DefaultClient,
+		// which the whole process shares, and an unrelated redirect
+		// through it must not carry a Vault token off to a third party.
+		// A Vault standby redirecting to the active node is a different
+		// host and so is not stamped here; the token still reaches it,
+		// because Go copies X-Vault-Token onto the redirected request
+		// itself, treating only Authorization and Cookie as sensitive.
+		if !v.isVaultHost(req.URL.Host) {
+			return nil
+		}
 		v.tokenLock.RLock()
 		tok := v.AuthToken
 		v.tokenLock.RUnlock()
@@ -63,6 +74,20 @@ func (v *Client) installRedirectPolicy(client *http.Client) {
 		req.Header.Set("X-Vault-Token", tok)
 		return nil
 	}
+}
+
+// isVaultHost reports whether host addresses the configured Vault. It accepts
+// the host as written and, when no port was configured, the port 8200 that
+// Curl fills in when it builds a request URL.
+func (v *Client) isVaultHost(host string) bool {
+	if v.VaultURL == nil {
+		return false
+	}
+	if host == v.VaultURL.Host {
+		return true
+	}
+
+	return v.VaultURL.Port() == "" && host == fmt.Sprintf("%s:8200", v.VaultURL.Host)
 }
 
 type vaultResponse struct {

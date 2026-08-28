@@ -52,7 +52,7 @@ func clientGet(client *vaultkv.Client, path string, output interface{}) error {
 // through a json.Decoder, which reads to EOF on its own while looking for what
 // follows the top-level value, so those paths are drained whether or not
 // anyone means to drain them. Set and Delete pass no output at all and decode
-// nothing, which leaves their bodies entirely unread — and Vault answers both
+// nothing, which leaves their bodies entirely unread, and Vault answers both
 // with a body whenever a warning rides along.
 func TestErrorResponsesKeepConnectionAlive(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -379,5 +379,109 @@ func TestErrorResponsesHealthClosesResponseBody(t *testing.T) {
 
 	if closes, _ := tracker.counts(); closes != 1 {
 		t.Errorf("want response body closed exactly once, got %d", closes)
+	}
+}
+
+// When Client.Client is nil -- the documented default -- Curl reaches for
+// http.DefaultClient and installs the Vault redirect policy on it. That object
+// is shared with everything else in the process, so the policy must not stamp
+// a Vault token onto a redirect that has nothing to do with Vault.
+func TestRedirectDoesNotLeakTokenToThirdParty(t *testing.T) {
+	var mu sync.Mutex
+	var thirdPartyToken string
+	var reached bool
+
+	thirdParty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		thirdPartyToken = r.Header.Get("X-Vault-Token")
+		reached = true
+		mu.Unlock()
+		w.Write([]byte("ok"))
+	}))
+	defer thirdParty.Close()
+
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, thirdParty.URL, http.StatusTemporaryRedirect)
+	}))
+	defer redirector.Close()
+
+	vault := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	}))
+	defer vault.Close()
+
+	u, err := url.Parse(vault.URL)
+	if err != nil {
+		t.Fatalf("could not parse URL: %s", err)
+	}
+
+	// Leaving Client.Client nil is what puts the policy on the shared
+	// http.DefaultClient; put it back the way it was found.
+	t.Cleanup(func() { http.DefaultClient.CheckRedirect = nil })
+
+	client := &vaultkv.Client{VaultURL: u, AuthToken: "super-secret-vault-token"}
+	var out map[string]interface{}
+	if err := client.Get("secret/foo", &out); err != nil {
+		t.Fatalf("request to the vault failed: %s", err)
+	}
+
+	// Traffic that has nothing to do with Vault, through the same client.
+	resp, err := http.Get(redirector.URL)
+	if err != nil {
+		t.Fatalf("unrelated request failed: %s", err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	mu.Lock()
+	got, sawRequest := thirdPartyToken, reached
+	mu.Unlock()
+
+	if !sawRequest {
+		t.Fatal("the third party never received the redirected request")
+	}
+	if got != "" {
+		t.Errorf("an unrelated redirect carried X-Vault-Token %q to a third party", got)
+	}
+}
+
+// A Vault standby answers with a redirect to the active node, which is a
+// different host entirely. Declining to stamp the token on hops away from the
+// configured Vault must not break that: Go's own redirect handling forwards
+// X-Vault-Token, which it does not treat as a sensitive header, so the token
+// still reaches the active node.
+func TestRedirectToActiveNodeCarriesToken(t *testing.T) {
+	var mu sync.Mutex
+	var activeToken string
+
+	active := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		activeToken = r.Header.Get("X-Vault-Token")
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	}))
+	defer active.Close()
+
+	standby := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, active.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer standby.Close()
+
+	client := newTestClient(t, standby.URL)
+	client.SetAuthToken("ha-token")
+
+	var out map[string]interface{}
+	if err := clientGet(client, "secret/foo", &out); err != nil {
+		t.Fatalf("redirected request failed: %s", err)
+	}
+
+	mu.Lock()
+	got := activeToken
+	mu.Unlock()
+
+	if got != "ha-token" {
+		t.Errorf("active node saw token %q, want %q", got, "ha-token")
 	}
 }

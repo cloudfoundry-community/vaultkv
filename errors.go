@@ -24,6 +24,17 @@ func IsBadRequest(err error) bool {
 	return is
 }
 
+//IsCASConflict returns true if the error is (or wraps) an ErrBadRequest
+// caused by Vault rejecting a check-and-set write because the given CAS
+// value did not match the current version of the secret. Vault reports that
+// rejection as a plain 400, so the message is the only thing that
+// distinguishes it from any other bad request.
+func IsCASConflict(err error) bool {
+	var badRequest *ErrBadRequest
+	return errors.As(err, &badRequest) &&
+		strings.Contains(badRequest.message, "check-and-set parameter did not match the current version")
+}
+
 //ErrForbidden represents 403 status codes returned from the API. This could be
 // if your auth is wrong or expired, or you simply don't have access to do the
 // particular thing you're trying to do. Check your privilege.

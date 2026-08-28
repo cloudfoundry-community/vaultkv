@@ -19,6 +19,11 @@ type KV struct {
 	//Map from mount name to [true if version 2. False otherwise]
 	mounts map[string]kvMount
 	lock   sync.RWMutex
+	//inflight tracks, by a requested path's first segment, a mount lookup
+	//already underway so concurrent callers under the same segment wait on
+	//it instead of issuing their own redundant round trip. Lazily
+	//allocated under lock.
+	inflight map[string]chan struct{}
 }
 
 type kvMount interface {
@@ -213,6 +218,7 @@ func (v *Client) NewKV() *KV {
 
 func (k *KV) mountForPath(path string) (mountPath string, ret kvMount, err error) {
 	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+	segment := pathParts[0]
 	var found bool
 	k.lock.RLock()
 	for i := 1; i <= len(pathParts); i++ {
@@ -227,32 +233,63 @@ func (k *KV) mountForPath(path string) (mountPath string, ret kvMount, err error
 		return
 	}
 
-	k.lock.Lock()
-	defer k.lock.Unlock()
-	for i := 1; i <= len(pathParts); i++ {
-		mountPath = strings.Join(pathParts[:i], "/")
-		ret, found = k.mounts[mountPath]
-		if found {
-			break
+	for {
+		k.lock.Lock()
+		for i := 1; i <= len(pathParts); i++ {
+			mountPath = strings.Join(pathParts[:i], "/")
+			ret, found = k.mounts[mountPath]
+			if found {
+				break
+			}
 		}
-	}
-	if found {
+		if found {
+			k.lock.Unlock()
+			return
+		}
+
+		//Another goroutine is already resolving this segment: wait for it to
+		//finish, then loop back around to the read path above instead of
+		//issuing our own redundant round trip.
+		if ch, inFlight := k.inflight[segment]; inFlight {
+			k.lock.Unlock()
+			<-ch
+			continue
+		}
+
+		if k.inflight == nil {
+			k.inflight = map[string]chan struct{}{}
+		}
+		ch := make(chan struct{})
+		k.inflight[segment] = ch
+		k.lock.Unlock()
+
+		//Resolve the mount with no lock held, so concurrent lookups for
+		//different segments perform their HTTP round trips in parallel
+		//instead of serializing behind k.lock. A plain "=" is required here:
+		//":=" inside this block would declare new, block-scoped
+		//mountPath/err that shadow the named returns above and send the
+		//caller back an empty mount path.
+		var isV2 bool
+		mountPath, isV2, err = k.Client.IsKVv2Mount(path)
+
+		k.lock.Lock()
+		if err == nil {
+			ret = kvv1Mount{k.Client}
+			if isV2 {
+				ret = kvv2Mount{k.Client}
+			}
+			//Two different segments can both resolve to, and store, the
+			//same mount path here, since their lookups are not mutually
+			//exclusive of each other. That is harmless as long as Vault's
+			//mount table did not change between the two round trips; if it
+			//did, whichever result is stored last wins.
+			k.mounts[mountPath] = ret
+		}
+		delete(k.inflight, segment)
+		close(ch)
+		k.lock.Unlock()
 		return
 	}
-
-	mountPath, isV2, err := k.Client.IsKVv2Mount(path)
-	if err != nil {
-		return
-	}
-
-	ret = kvv1Mount{k.Client}
-	if isV2 {
-		ret = kvv2Mount{k.Client}
-	}
-
-	k.mounts[mountPath] = ret
-
-	return
 }
 
 func subtractMount(mount string, path string) string {

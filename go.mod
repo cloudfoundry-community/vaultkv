@@ -1,6 +1,6 @@
 module github.com/cloudfoundry-community/vaultkv
 
-go 1.21
+go 1.20
 
 require (
 	github.com/hashicorp/cap v0.5.0

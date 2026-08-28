@@ -31,6 +31,40 @@ type Client struct {
 	tokenLock sync.RWMutex
 }
 
+// devFallbackToken is used as the X-Vault-Token when no AuthToken has been
+// set, matching Vault's dev-mode root token.
+const devFallbackToken = "01234567-89ab-cdef-0123-456789abcdef"
+
+var redirectMu sync.Mutex
+
+// installRedirectPolicy sets the Vault redirect policy exactly once per
+// http.Client, without racing concurrent first requests. The closure
+// reads the token at redirect time, so SetAuthToken takes effect on
+// later redirects. A caller-supplied CheckRedirect is left untouched.
+// Known remainder: if two vaultkv.Clients share one http.Client, the
+// closure pins the first vaultkv.Client's token source; that sharing
+// already misroutes tokens on redirects today and is out of scope here.
+func (v *Client) installRedirectPolicy(client *http.Client) {
+	redirectMu.Lock()
+	defer redirectMu.Unlock()
+	if client.CheckRedirect != nil {
+		return
+	}
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) > 10 {
+			return fmt.Errorf("Stopped after 10 redirects")
+		}
+		v.tokenLock.RLock()
+		tok := v.AuthToken
+		v.tokenLock.RUnlock()
+		if tok == "" {
+			tok = devFallbackToken
+		}
+		req.Header.Set("X-Vault-Token", tok)
+		return nil
+	}
+}
+
 type vaultResponse struct {
 	Data interface{} `json:"data"`
 	//There's totally more to the response, but this is all I care about atm.
@@ -121,7 +155,7 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 	token := v.AuthToken
 	v.tokenLock.RUnlock()
 	if token == "" {
-		token = "01234567-89ab-cdef-0123-456789abcdef"
+		token = devFallbackToken
 	}
 	req.Header.Set("X-Vault-Token", token)
 
@@ -134,15 +168,7 @@ func (v *Client) Curl(method string, path string, urlQuery url.Values, body io.R
 		client = http.DefaultClient
 	}
 
-	if client.CheckRedirect == nil {
-		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			if len(via) > 10 {
-				return fmt.Errorf("Stopped after 10 redirects")
-			}
-			req.Header.Set("X-Vault-Token", token)
-			return nil
-		}
-	}
+	v.installRedirectPolicy(client)
 
 	resp, err := client.Do(req)
 	if err != nil {

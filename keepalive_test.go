@@ -183,6 +183,91 @@ func (t *trackingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 	return resp, nil
 }
 
+// Curl must read the auth token live when installing the Vault redirect
+// policy, not capture it once at installation time: a token rotated via
+// SetAuthToken after the policy is installed must still reach the
+// redirected hop.
+func TestRedirectUsesLiveToken(t *testing.T) {
+	var mu sync.Mutex
+	var redirectedToken string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/secret/first", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	})
+	mux.HandleFunc("/v1/secret/redirect", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/v1/secret/redirect-target", http.StatusTemporaryRedirect)
+	})
+	mux.HandleFunc("/v1/secret/redirect-target", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		redirectedToken = r.Header.Get("X-Vault-Token")
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := newTestClient(t, srv.URL)
+	client.SetAuthToken("first")
+
+	// Throwaway request installs today's redirect policy with "first"
+	// captured.
+	var out map[string]interface{}
+	if err := clientGet(client, "secret/first", &out); err != nil {
+		t.Fatalf("throwaway request failed: %s", err)
+	}
+
+	client.SetAuthToken("second")
+
+	if err := clientGet(client, "secret/redirect", &out); err != nil {
+		t.Fatalf("redirecting request failed: %s", err)
+	}
+
+	mu.Lock()
+	got := redirectedToken
+	mu.Unlock()
+
+	if got != "second" {
+		t.Errorf("redirected hop carried token %q, want %q", got, "second")
+	}
+}
+
+// Installing the redirect policy on a client's first request must not race
+// when multiple goroutines make that first request concurrently.
+func TestRedirectConcurrentFirstRequestNoRace(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	})
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	client := newTestClient(t, srv.URL)
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var out map[string]interface{}
+			if err := clientGet(client, "secret/concurrent", &out); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("unexpected error: %s", err)
+	}
+}
+
 // Health must close its response body; it currently never does, on any path.
 func TestErrorResponsesHealthClosesResponseBody(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

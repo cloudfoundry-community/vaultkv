@@ -27,29 +27,41 @@ type Client struct {
 	Trace io.Writer
 	//Namespace, if non-empty, will send a X-Vault-Namespace header on requests with
 	// the given value.
-	Namespace string
-	tokenLock sync.RWMutex
+	Namespace    string
+	tokenLock    sync.RWMutex
+	redirectOnce sync.Once
 }
 
 // devFallbackToken is used as the X-Vault-Token when no AuthToken has been
 // set, matching Vault's dev-mode root token.
 const devFallbackToken = "01234567-89ab-cdef-0123-456789abcdef"
 
+// redirectMu orders the installation itself. Two vaultkv Clients can share one
+// http.Client, and every Client with a nil Client shares http.DefaultClient, so
+// the write to CheckRedirect needs ordering that no single Client can provide.
+// It is taken once per Client rather than once per request: redirectOnce's fast
+// path is an atomic load, which is what a request pays.
 var redirectMu sync.Mutex
 
 // installRedirectPolicy sets the Vault redirect policy exactly once per
-// http.Client, without racing concurrent first requests. The closure
+// vaultkv.Client, without racing concurrent first requests. The closure
 // reads the token at redirect time, so SetAuthToken takes effect on
 // later redirects. A caller-supplied CheckRedirect is left untouched.
 // Known remainder: if two vaultkv.Clients share one http.Client, the
 // closure pins the first vaultkv.Client's token source; that sharing
 // already misroutes tokens on redirects today and is out of scope here.
 func (v *Client) installRedirectPolicy(client *http.Client) {
-	redirectMu.Lock()
-	defer redirectMu.Unlock()
-	if client.CheckRedirect != nil {
-		return
-	}
+	v.redirectOnce.Do(func() {
+		redirectMu.Lock()
+		defer redirectMu.Unlock()
+		if client.CheckRedirect != nil {
+			return
+		}
+		v.setRedirectPolicy(client)
+	})
+}
+
+func (v *Client) setRedirectPolicy(client *http.Client) {
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) > 10 {
 			return fmt.Errorf("Stopped after 10 redirects")

@@ -485,3 +485,45 @@ func TestRedirectToActiveNodeCarriesToken(t *testing.T) {
 		t.Errorf("active node saw token %q, want %q", got, "ha-token")
 	}
 }
+
+// Nothing stops two vaultkv Clients from sharing one *http.Client, and every
+// Client with a nil Client.Client shares http.DefaultClient whether it means
+// to or not. Their first requests must not race to install the redirect policy
+// on the object they have in common.
+func TestRedirectSharedHTTPClientNoRace(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"k":"v"}}`))
+	})
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("could not parse URL: %s", err)
+	}
+
+	shared := &http.Client{Transport: &http.Transport{}}
+	t.Cleanup(shared.CloseIdleConnections)
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		client := &vaultkv.Client{VaultURL: u, AuthToken: "t", Client: shared}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var out map[string]interface{}
+			if err := clientGet(client, "secret/shared", &out); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("unexpected error: %s", err)
+	}
+}

@@ -291,14 +291,25 @@ func (k *KV) mountForPath(path string) (mountPath string, ret kvMount, err error
 // back an empty mount path.
 func (k *KV) resolveMount(path, segment string, ch chan struct{}) (mountPath string, ret kvMount, err error) {
 	resolved := false
+	var versions map[string]bool
 	defer func() {
 		k.lock.Lock()
 		if resolved {
-			// Two different segments can both resolve to, and store, the
-			// same mount path here, since their lookups are not mutually
-			// exclusive of each other. That is harmless as long as Vault's
-			// mount table did not change between the two round trips; if it
-			// did, whichever result is stored last wins.
+			// The table fetch answered for every mount visible to the
+			// token, not just the one asked about, so cache them all:
+			// later lookups under other segments then cost no round trip
+			// at all. Two concurrent leaders for different segments can
+			// both store this same table, since their lookups are not
+			// mutually exclusive of each other. That is harmless as long
+			// as Vault's mount table did not change between the two round
+			// trips; if it did, whichever result is stored last wins.
+			for mount, isV2 := range versions {
+				entry := kvMount(kvv1Mount{k.Client})
+				if isV2 {
+					entry = kvv2Mount{k.Client}
+				}
+				k.mounts[mount] = entry
+			}
 			k.mounts[mountPath] = ret
 		}
 		delete(k.inflight, segment)
@@ -306,10 +317,16 @@ func (k *KV) resolveMount(path, segment string, ch chan struct{}) (mountPath str
 		k.lock.Unlock()
 	}()
 
-	var isV2 bool
-	mountPath, isV2, err = k.Client.IsKVv2Mount(path)
+	versions, err = k.Client.kvMountVersions()
 	if err != nil {
 		return
+	}
+
+	var isV2 bool
+	mountPath = strings.Trim(mountPathDefault(path), "/")
+	if m, v2, found := findKVMount(strings.TrimPrefix(path, "/"), versions); found {
+		mountPath = m
+		isV2 = v2
 	}
 
 	ret = kvv1Mount{k.Client}

@@ -70,6 +70,37 @@ type vaultResponse struct {
 	//There's totally more to the response, but this is all I care about atm.
 }
 
+// drainLimit is how much of a response body is worth discarding to keep the
+// connection. On the success path the JSON decoder has already consumed the
+// value, so the drain returns io.EOF at once; on an error path the body is a
+// short JSON error object well under this bound.
+const drainLimit = 4 << 10
+
+// drainBody discards what is left of resp's body and closes it, so the
+// connection returns to the keep-alive pool: an unread body otherwise costs
+// the whole TCP+TLS connection on every Go toolchain before 1.27.
+//
+// Only a body whose length the server declared, and declared small, is
+// drained. Reading is blocking and happens on the caller's goroutine, and Curl
+// builds its requests with no context while the client sets no timeout, so a
+// chunked or truncated body would otherwise pin that goroutine for as long as
+// the server chose to stay silent. Giving up the connection is the cheaper
+// loss.
+//
+// A drain error is surfaced through err only when nothing earlier failed,
+// preserving the truncation signal the previous ReadAll gave.
+func drainBody(resp *http.Response, err *error) {
+	if resp.ContentLength >= 0 && resp.ContentLength <= drainLimit {
+		if _, derr := io.CopyN(io.Discard, resp.Body, drainLimit); derr != nil && derr != io.EOF {
+			if *err == nil {
+				*err = derr
+			}
+		}
+	}
+
+	resp.Body.Close()
+}
+
 //URL encoded values can be given as a *url.Values as "input" when performing
 // a GET call
 func (v *Client) doRequest(
@@ -97,15 +128,7 @@ func (v *Client) doRequest(
 		return err
 	}
 	defer func() {
-		// Drain (bounded) so the connection returns to the keep-alive
-		// pool; an unread error body otherwise costs the TCP+TLS
-		// connection. Surface a drain error only when nothing earlier
-		// failed, preserving the old ReadAll's truncation signal.
-		_, derr := io.CopyN(io.Discard, resp.Body, 4<<10)
-		resp.Body.Close()
-		if err == nil && derr != nil && derr != io.EOF {
-			err = derr
-		}
+		drainBody(resp, &err)
 	}()
 
 	if resp.StatusCode/100 != 2 {

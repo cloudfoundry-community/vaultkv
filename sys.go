@@ -3,7 +3,6 @@ package vaultkv
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/url"
 	"strings"
 )
@@ -217,15 +216,7 @@ func (v *Client) Health(standbyok bool) (err error) {
 		return err
 	}
 	defer func() {
-		// Drain (bounded) so the connection returns to the keep-alive
-		// pool; an unread error body otherwise costs the TCP+TLS
-		// connection. Surface a drain error only when nothing earlier
-		// failed, preserving the old ReadAll's truncation signal.
-		_, derr := io.CopyN(io.Discard, resp.Body, 4<<10)
-		resp.Body.Close()
-		if err == nil && derr != nil && derr != io.EOF {
-			err = derr
-		}
+		drainBody(resp, &err)
 	}()
 
 	errorsStruct := apiError{}

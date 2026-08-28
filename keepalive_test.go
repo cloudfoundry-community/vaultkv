@@ -3,14 +3,12 @@ package vaultkv_test
 import (
 	"bytes"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	vaultkv "github.com/cloudfoundry-community/vaultkv"
@@ -40,52 +38,60 @@ func clientGet(client *vaultkv.Client, path string, output interface{}) error {
 	return client.Get(path, output)
 }
 
-// A 404 must not cost the client its keep-alive connection: three
-// sequential requests (200, 404, 200) arrive on one TCP connection,
-// counted via ConnState on an unstarted server (assigning ConnState
-// after NewServer would clobber httptest's own hook).
+// A response must not cost the client its keep-alive connection. What keeps
+// the connection is reading the rest of the body before closing it, so that is
+// what this asserts: every response body reaches EOF before Close.
+//
+// Counting connections instead would not do. Go 1.27's transport drains short
+// bodies itself, on its own goroutine, so the connection survives there whether
+// or not this library reads anything; the count keeps passing against
+// unpatched code and guards nothing. Watching the body this library was handed
+// holds on every toolchain.
+//
+// The discriminating request is the Delete. Get and List decode the body
+// through a json.Decoder, which reads to EOF on its own while looking for what
+// follows the top-level value, so those paths are drained whether or not
+// anyone means to drain them. Set and Delete pass no output at all and decode
+// nothing, which leaves their bodies entirely unread — and Vault answers both
+// with a body whenever a warning rides along.
 func TestErrorResponsesKeepConnectionAlive(t *testing.T) {
-	var mu sync.Mutex
-	calls := 0
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		calls++
-		n := calls
-		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		if n == 2 {
+		switch {
+		case r.Method == "DELETE":
+			w.Write([]byte(`{"warnings":["nothing was there"]}`))
+		case strings.HasSuffix(r.URL.Path, "/missing"):
 			w.WriteHeader(404)
 			w.Write([]byte(`{"errors":["not found"]}`))
-			return
+		default:
+			w.Write([]byte(`{"data":{"k":"v"}}`))
 		}
-		w.Write([]byte(`{"data":{"k":"v"}}`))
 	})
 
-	var newConns atomic.Int64
-	srv := httptest.NewUnstartedServer(handler)
-	base := srv.Config.ConnState
-	srv.Config.ConnState = func(c net.Conn, s http.ConnState) {
-		if s == http.StateNew {
-			newConns.Add(1)
-		}
-		if base != nil {
-			base(c, s)
-		}
-	}
-	srv.Start()
+	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := newTestClient(t, srv.URL)
+	tracker := &bodyTracker{}
+	client := newTrackingClient(t, srv.URL, tracker)
 
 	var out map[string]interface{}
-	_ = clientGet(client, "secret/one", &out)
-	if err := clientGet(client, "secret/two", &out); !vaultkv.IsNotFound(err) {
+	if err := clientGet(client, "secret/one", &out); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := clientGet(client, "secret/missing", &out); !vaultkv.IsNotFound(err) {
 		t.Fatalf("want 404 error, got %v", err)
 	}
-	_ = clientGet(client, "secret/three", &out)
+	if err := client.Delete("secret/three"); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
-	if got := newConns.Load(); got != 1 {
-		t.Errorf("requests used %d connections, want 1", got)
+	closes, drained := tracker.counts()
+	if closes != 3 {
+		t.Fatalf("want 3 response bodies closed, got %d", closes)
+	}
+	if drained != 3 {
+		t.Errorf("only %d of %d response bodies were read to EOF before Close; "+
+			"a body closed unread costs the connection", drained, closes)
 	}
 }
 
@@ -193,19 +199,56 @@ func TestErrorResponsesCurlWritesTransportErrorsToTrace(t *testing.T) {
 	}
 }
 
-type closeTrackingBody struct {
-	io.ReadCloser
-	closed *int32
+// bodyTracker counts, across every response a transport hands back, how many
+// bodies were closed and how many of those had been read to EOF by the time
+// they were closed.
+type bodyTracker struct {
+	mu      sync.Mutex
+	closes  int
+	drained int
 }
 
-func (c *closeTrackingBody) Close() error {
-	atomic.AddInt32(c.closed, 1)
-	return c.ReadCloser.Close()
+func (b *bodyTracker) record(sawEOF bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.closes++
+	if sawEOF {
+		b.drained++
+	}
+}
+
+func (b *bodyTracker) counts() (closes, drained int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.closes, b.drained
+}
+
+// trackedBody notes whether a read ever reached EOF, and reports that to the
+// tracker at the moment of Close. Recording at Close is what makes the
+// assertion toolchain-independent: whatever the transport does with the
+// underlying body afterwards is its own business, and is not counted here.
+type trackedBody struct {
+	io.ReadCloser
+	tracker *bodyTracker
+	sawEOF  bool
+}
+
+func (b *trackedBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err == io.EOF {
+		b.sawEOF = true
+	}
+	return n, err
+}
+
+func (b *trackedBody) Close() error {
+	b.tracker.record(b.sawEOF)
+	return b.ReadCloser.Close()
 }
 
 type trackingRoundTripper struct {
 	http.RoundTripper
-	closed *int32
+	tracker *bodyTracker
 }
 
 func (t *trackingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -213,8 +256,22 @@ func (t *trackingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 	if err != nil {
 		return resp, err
 	}
-	resp.Body = &closeTrackingBody{ReadCloser: resp.Body, closed: t.closed}
+	resp.Body = &trackedBody{ReadCloser: resp.Body, tracker: t.tracker}
 	return resp, nil
+}
+
+// newTrackingClient builds a vaultkv.Client whose responses are observed by
+// tracker.
+func newTrackingClient(t *testing.T, rawURL string, tracker *bodyTracker) *vaultkv.Client {
+	t.Helper()
+
+	client := newTestClient(t, rawURL)
+	client.Client = &http.Client{
+		Transport: &trackingRoundTripper{RoundTripper: &http.Transport{}, tracker: tracker},
+	}
+	t.Cleanup(client.Client.CloseIdleConnections)
+
+	return client
 }
 
 // Curl must read the auth token live when installing the Vault redirect
@@ -313,25 +370,14 @@ func TestErrorResponsesHealthClosesResponseBody(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatalf("could not parse URL: %s", err)
-	}
-
-	var closed int32
-	client := &vaultkv.Client{
-		VaultURL:  u,
-		AuthToken: "t",
-		Client: &http.Client{
-			Transport: &trackingRoundTripper{RoundTripper: &http.Transport{}, closed: &closed},
-		},
-	}
+	tracker := &bodyTracker{}
+	client := newTrackingClient(t, srv.URL, tracker)
 
 	if err := client.Health(true); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	if got := atomic.LoadInt32(&closed); got != 1 {
-		t.Errorf("want response body closed exactly once, got %d", got)
+	if closes, _ := tracker.counts(); closes != 1 {
+		t.Errorf("want response body closed exactly once, got %d", closes)
 	}
 }
